@@ -10,6 +10,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import jakarta.persistence.FetchType;
 
 @Entity
 @Table(name = "users")
@@ -28,7 +29,8 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @ManyToOne(optional = false)
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
@@ -81,4 +83,6 @@ public class User {
     public void setRole(Role role) {
         this.role = role;
     }
+    
+    
 }
