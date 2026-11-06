@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            background: #f4f6f8;
+            color: #222;
+        }
+        header {
+            background: #2c3e50;
+            color: #fff;
+            padding: 16px 24px;
+        }
+        header h1 { margin: 0; font-size: 1.4rem; }
+        main {
+            max-width: 1000px;
+            margin: 24px auto;
+            padding: 0 16px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 24px;
+        }
+        @media (max-width: 760px) { main { grid-template-columns: 1fr; } }
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        h2 { margin-top: 0; font-size: 1.1rem; }
+        label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 0.9rem; }
+        input, select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+        input.invalid, select.invalid { border-color: #c0392b; }
+        .field-error { color: #c0392b; font-size: 0.8rem; min-height: 1em; margin-top: 2px; }
+        button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-primary { background: #2980b9; color: #fff; }
+        .btn-primary:hover { background: #2471a3; }
+        .btn-secondary { background: #ddd; }
+        .btn-secondary:hover { background: #ccc; }
+        .btn-edit { background: #f39c12; color: #fff; }
+        .btn-delete { background: #c0392b; color: #fff; }
+        .form-actions { margin-top: 16px; display: flex; gap: 8px; }
+        .toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
+        .toolbar input { flex: 1; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        th { background: #fafafa; }
+        td.actions { white-space: nowrap; }
+        td.actions button { padding: 4px 10px; margin-right: 4px; }
+        .role {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #e8eef3;
+        }
+        .role-ADMIN { background: #fde2e1; color: #a93226; }
+        .role-MANAGER { background: #fdf2d9; color: #9a6b00; }
+        .role-USER { background: #dff3e4; color: #1e7e34; }
+        .message { padding: 10px 12px; border-radius: 4px; margin-bottom: 12px; display: none; }
+        .message.success { display: block; background: #dff3e4; color: #1e7e34; }
+        .message.error { display: block; background: #fde2e1; color: #a93226; }
+        .empty { text-align: center; color: #888; padding: 20px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>User Management System</h1>
+</header>
+
+<main>
+    <!-- Left side: form to add or edit a user -->
+    <section class="card">
+        <h2 id="form-title">Add User</h2>
+        <form id="user-form" novalidate>
+            <input type="hidden" id="user-id">
+
+            <label for="name">Name</label>
+            <input type="text" id="name" maxlength="100">
+            <div class="field-error" id="name-error"></div>
+
+            <label for="email">Email</label>
+            <input type="email" id="email" maxlength="150">
+            <div class="field-error" id="email-error"></div>
+
+            <label for="roleId">Role</label>
+            <select id="roleId">
+                <option value="">-- Select a role --</option>
+                <option value="1">ADMIN</option>
+                <option value="2">MANAGER</option>
+                <option value="3">USER</option>
+            </select>
+            <div class="field-error" id="roleId-error"></div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-primary" id="submit-btn">Add User</button>
+                <button type="button" class="btn-secondary" id="cancel-btn" hidden>Cancel</button>
+            </div>
+        </form>
+    </section>
+
+    <!-- Right side: list of users -->
+    <section class="card">
+        <h2>Users</h2>
+        <div id="message" class="message"></div>
+
+        <div class="toolbar">
+            <input type="text" id="search" placeholder="Search by name or email...">
+            <button type="button" class="btn-secondary" id="clear-search">Clear</button>
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Created</th>
+                <th></th>
+            </tr>
+            </thead>
+            <tbody id="user-table"></tbody>
+        </table>
+    </section>
+</main>
+
+<script>
+    const API_URL = "/api/users";
+
+    const form = document.getElementById("user-form");
+    const formTitle = document.getElementById("form-title");
+    const submitBtn = document.getElementById("submit-btn");
+    const cancelBtn = document.getElementById("cancel-btn");
+    const idInput = document.getElementById("user-id");
+    const nameInput = document.getElementById("name");
+    const emailInput = document.getElementById("email");
+    const roleInput = document.getElementById("roleId");
+    const searchInput = document.getElementById("search");
+    const tableBody = document.getElementById("user-table");
+    const messageBox = document.getElementById("message");
+
+    // Load the users from the API and show them in the table
+    async function loadUsers() {
+        const search = searchInput.value.trim();
+        const url = search ? API_URL + "?search=" + encodeURIComponent(search) : API_URL;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Could not load users (status " + response.status + ")");
+            const users = await response.json();
+            renderUsers(users);
+        } catch (err) {
+            showMessage(err.message, "error");
+        }
+    }
+
+    // Build one table row per user. textContent is used so user data
+    // is never treated as HTML.
+    function renderUsers(users) {
+        tableBody.innerHTML = "";
+
+        if (users.length === 0) {
+            const row = tableBody.insertRow();
+            const cell = row.insertCell();
+            cell.colSpan = 6;
+            cell.className = "empty";
+            cell.textContent = "No users found.";
+            return;
+        }
+
+        users.forEach(user => {
+            const row = tableBody.insertRow();
+            row.insertCell().textContent = user.id;
+            row.insertCell().textContent = user.name;
+            row.insertCell().textContent = user.email;
+
+            const roleBadge = document.createElement("span");
+            roleBadge.className = "role role-" + user.roleName;
+            roleBadge.textContent = user.roleName;
+            row.insertCell().appendChild(roleBadge);
+
+            row.insertCell().textContent = user.createdAt
+                ? new Date(user.createdAt).toLocaleString()
+                : "";
+
+            const actions = row.insertCell();
+            actions.className = "actions";
+
+            const editBtn = document.createElement("button");
+            editBtn.className = "btn-edit";
+            editBtn.textContent = "Edit";
+            editBtn.onclick = () => startEdit(user);
+            actions.appendChild(editBtn);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.className = "btn-delete";
+            deleteBtn.textContent = "Delete";
+            deleteBtn.onclick = () => deleteUser(user);
+            actions.appendChild(deleteBtn);
+        });
+    }
+
+    // Create a new user (POST) or update an existing one (PUT)
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        clearFieldErrors();
+
+        const id = idInput.value;
+        const body = {
+            name: nameInput.value.trim(),
+            email: emailInput.value.trim(),
+            roleId: roleInput.value ? Number(roleInput.value) : null
+        };
+
+        try {
+            const response = await fetch(id ? API_URL + "/" + id : API_URL, {
+                method: id ? "PUT" : "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+
+            if (!response.ok) {
+                await handleError(response);
+                return;
+            }
+
+            showMessage(id ? "User updated." : "User added.", "success");
+            resetForm();
+            loadUsers();
+        } catch (err) {
+            showMessage("Could not reach the server.", "error");
+        }
+    });
+
+    async function deleteUser(user) {
+        if (!confirm('Delete "' + user.name + '"?')) return;
+
+        try {
+            const response = await fetch(API_URL + "/" + user.id, { method: "DELETE" });
+            if (!response.ok) {
+                await handleError(response);
+                return;
+            }
+            showMessage("User deleted.", "success");
+            // If we were editing this user, clear the form
+            if (idInput.value === String(user.id)) resetForm();
+            loadUsers();
+        } catch (err) {
+            showMessage("Could not reach the server.", "error");
+        }
+    }
+
+    // Read the ApiError JSON from the backend and show it.
+    // Validation errors (400) are shown under each field.
+    async function handleError(response) {
+        let error = null;
+        try { error = await response.json(); } catch (e) { /* body was not JSON */ }
+
+        if (error && error.fieldErrors && Object.keys(error.fieldErrors).length > 0) {
+            for (const [field, text] of Object.entries(error.fieldErrors)) {
+                const errorDiv = document.getElementById(field + "-error");
+                const input = document.getElementById(field);
+                if (errorDiv) errorDiv.textContent = text;
+                if (input) input.classList.add("invalid");
+            }
+            showMessage("Please fix the errors in the form.", "error");
+        } else {
+            showMessage(error && error.message ? error.message : "Request failed (status " + response.status + ")", "error");
+        }
+    }
+
+    // Fill the form with the user's data so it can be edited
+    function startEdit(user) {
+        clearFieldErrors();
+        idInput.value = user.id;
+        nameInput.value = user.name;
+        emailInput.value = user.email;
+        roleInput.value = user.roleId;
+        formTitle.textContent = "Edit User #" + user.id;
+        submitBtn.textContent = "Save Changes";
+        cancelBtn.hidden = false;
+        nameInput.focus();
+    }
+
+    function resetForm() {
+        form.reset();
+        idInput.value = "";
+        formTitle.textContent = "Add User";
+        submitBtn.textContent = "Add User";
+        cancelBtn.hidden = true;
+        clearFieldErrors();
+    }
+
+    function clearFieldErrors() {
+        document.querySelectorAll(".field-error").forEach(div => div.textContent = "");
+        document.querySelectorAll(".invalid").forEach(input => input.classList.remove("invalid"));
+    }
+
+    function showMessage(text, type) {
+        messageBox.textContent = text;
+        messageBox.className = "message " + type;
+        clearTimeout(showMessage.timer);
+        showMessage.timer = setTimeout(() => { messageBox.className = "message"; }, 4000);
+    }
+
+    cancelBtn.addEventListener("click", resetForm);
+
+    // Search while typing, with a short wait so we don't call the API on every key
+    let searchTimer;
+    searchInput.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(loadUsers, 300);
+    });
+
+    document.getElementById("clear-search").addEventListener("click", () => {
+        searchInput.value = "";
+        loadUsers();
+    });
+
+    // Load the users when the page opens
+    loadUsers();
+</script>
+</body>
+</html>
