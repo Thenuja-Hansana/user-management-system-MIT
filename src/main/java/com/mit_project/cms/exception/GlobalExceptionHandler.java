@@ -1,5 +1,6 @@
 package com.mit_project.cms.exception;
 
+import com.mit_project.cms.controller.AccountRestController;   // [ADDED - login]
 import com.mit_project.cms.controller.RoleRestController;   // [ADDED]
 import com.mit_project.cms.controller.UserRestController;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,6 +10,7 @@ import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;   // [ADDED - login]
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,7 +23,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
  * will handle errors in a different way.
  */
 // [CHANGED] now also handles errors from RoleRestController
-@RestControllerAdvice(assignableTypes = {UserRestController.class, RoleRestController.class})
+// [CHANGED - login] and from AccountRestController
+@RestControllerAdvice(assignableTypes = {UserRestController.class, RoleRestController.class,
+        AccountRestController.class})
 public class GlobalExceptionHandler {
 
     // User or role not found -> 404
@@ -48,6 +52,13 @@ public class GlobalExceptionHandler {
                 ? Map.of()
                 : Map.of(ex.getField(), ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request, fieldErrors);
+    }
+
+    // [ADDED - login] logged in, but not allowed to do this (e.g. a Manager deleting an Admin) -> 403
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex,
+                                                       HttpServletRequest request) {
+        return build(HttpStatus.FORBIDDEN, ex.getMessage(), request, Map.of());
     }
 
     // Validation failed (@Valid) -> 400, with the error for each field

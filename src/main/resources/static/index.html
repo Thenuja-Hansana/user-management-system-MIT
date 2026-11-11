@@ -23,6 +23,7 @@
         }
 
         * { box-sizing: border-box; }
+        [hidden] { display: none !important; }   /* [ADDED - login] hidden always wins over display: flex/grid */
 
         body {
             font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -59,6 +60,20 @@
             box-shadow: 0 0 0 4px rgba(165, 180, 252, 0.25);
         }
 
+        /* [ADDED - login] start: header with the logged-in user and "Log out" on the right */
+        header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+        .user-menu { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; }
+        .user-menu a { color: #c7d2fe; font-weight: 600; text-decoration: none; }
+        .user-menu a:hover { color: #fff; text-decoration: underline; }
+        .btn-logout {
+            padding: 7px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+        .btn-logout:hover:not(:disabled) { background: rgba(255, 255, 255, 0.25); }
+        /* [ADDED - login] end */
+
         /* ---------- Layout ---------- */
         main {
             max-width: 1280px;
@@ -70,6 +85,7 @@
             align-items: start;
         }
         @media (max-width: 1200px) { main { grid-template-columns: minmax(0, 1fr); } }
+        main.no-form { grid-template-columns: minmax(0, 1fr); }   /* [ADDED - login] Manager: no form column */
 
         /* [ADDED] right column that holds the Users and Roles cards */
         .content { display: grid; gap: 24px; min-width: 0; }
@@ -329,6 +345,13 @@
 
 <header>
     <h1>User Management System</h1>
+    <!-- [ADDED - login] who is logged in, a link to My Account, and Log out (filled in by start()) -->
+    <div class="user-menu" id="user-menu" hidden>
+        <span id="current-user-name"></span>
+        <span class="badge" id="current-user-role"></span>
+        <a href="/account.html">My account</a>
+        <button type="button" class="btn-logout" id="logout-btn">Log out</button>
+    </div>
 </header>
 
 <!-- [CHANGED] message box moved here (it was inside the users card) -->
@@ -441,7 +464,8 @@
         <!-- List of roles, with activate / deactivate -->
         <section class="card" id="roles-card">
             <h2>Roles</h2>
-            <p class="card-hint">Deactivating a role moves all of its users to GUEST. GUEST is always active.</p>
+            <!-- [CHANGED - login] id added (the text changes for Managers), and ADMIN is now always active too -->
+            <p class="card-hint" id="roles-hint">Deactivating a role moves all of its users to GUEST. ADMIN and GUEST are always active.</p>
 
             <div class="table-wrap">
                 <table>
@@ -463,6 +487,8 @@
     </div>
 </main>
 
+<!-- [ADDED - login] shared helpers: csrfToken(), apiFetch(), logout() -->
+<script src="/js/auth.js"></script>
 <script>
     const API_URL = "/api/users";
     const ROLES_URL = "/api/roles";   // [ADDED]
@@ -520,7 +546,8 @@
         const url = search ? API_URL + "?search=" + encodeURIComponent(search) : API_URL;
 
         try {
-            const response = await fetch(url);
+            // [CHANGED - login] fetch -> apiFetch (adds the security token, handles "not logged in")
+            const response = await apiFetch(url);
             if (!response.ok) throw new Error("Could not load users (status " + response.status + ")");
             const users = await response.json();
             renderUsers(users);
@@ -562,17 +589,23 @@
             const actions = row.insertCell();
             actions.className = "actions";
 
-            const editBtn = document.createElement("button");
-            editBtn.className = "btn-edit";
-            editBtn.textContent = "Edit";
-            editBtn.onclick = () => startEdit(user);
-            actions.appendChild(editBtn);
+            // [CHANGED - login] only Admins get the Edit button
+            if (isAdmin()) {
+                const editBtn = document.createElement("button");
+                editBtn.className = "btn-edit";
+                editBtn.textContent = "Edit";
+                editBtn.onclick = () => startEdit(user);
+                actions.appendChild(editBtn);
+            }
 
-            const deleteBtn = document.createElement("button");
-            deleteBtn.className = "btn-delete";
-            deleteBtn.textContent = "Delete";
-            deleteBtn.onclick = () => deleteUser(user);
-            actions.appendChild(deleteBtn);
+            // [CHANGED - login] Delete only if this user may be deleted by you (see canDelete)
+            if (canDelete(user)) {
+                const deleteBtn = document.createElement("button");
+                deleteBtn.className = "btn-delete";
+                deleteBtn.textContent = "Delete";
+                deleteBtn.onclick = () => deleteUser(user);
+                actions.appendChild(deleteBtn);
+            }
         });
     }
 
@@ -600,7 +633,8 @@
         };
 
         try {
-            const response = await fetch(id ? API_URL + "/" + id : API_URL, {
+            // [CHANGED - login] fetch -> apiFetch
+            const response = await apiFetch(id ? API_URL + "/" + id : API_URL, {
                 method: id ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body)
@@ -612,6 +646,11 @@
             }
 
             showMessage(id ? "User updated." : "User added.", "success");
+            // [ADDED - login] if you edited yourself, show the new name in the header
+            if (id && Number(id) === currentUser.id) {
+                currentUser.name = body.name;
+                document.getElementById("current-user-name").textContent = body.name;
+            }
             resetForm();
             loadUsers();
             loadRoles();   // [ADDED] user counts per role may have changed
@@ -624,7 +663,8 @@
         if (!confirm('Delete "' + user.name + '"?')) return;
 
         try {
-            const response = await fetch(API_URL + "/" + user.id, { method: "DELETE" });
+            // [CHANGED - login] fetch -> apiFetch
+            const response = await apiFetch(API_URL + "/" + user.id, { method: "DELETE" });
             if (!response.ok) {
                 await handleError(response);
                 return;
@@ -645,7 +685,8 @@
     // Load the roles, then fill the roles table and the role dropdown
     async function loadRoles() {
         try {
-            const response = await fetch(ROLES_URL);
+            // [CHANGED - login] fetch -> apiFetch
+            const response = await apiFetch(ROLES_URL);
             if (!response.ok) throw new Error("Could not load roles (status " + response.status + ")");
             const roles = await response.json();
             renderRoles(roles);
@@ -681,14 +722,19 @@
 
             const actions = row.insertCell();
             actions.className = "actions";
+            // [ADDED - login] only Admins can activate / deactivate roles (Managers see no button)
+            if (!isAdmin()) return;   // "return" inside forEach = skip to the next role
             const btn = document.createElement("button");
 
             if (role.status === "ACTIVE") {
                 btn.className = "btn-delete";
                 btn.textContent = "Deactivate";
-                if (role.name === GUEST) {
+                // [CHANGED - login] ADMIN is protected like GUEST
+                if (role.name === GUEST || role.name === "ADMIN") {
                     btn.disabled = true;
-                    btn.title = "GUEST is the fallback role and is always active";
+                    btn.title = role.name === GUEST
+                        ? "GUEST is the fallback role and is always active"
+                        : "ADMIN is always active, so admins can never be locked out";
                 } else {
                     btn.onclick = () => changeRoleStatus(role, "INACTIVE");
                 }
@@ -726,7 +772,8 @@
         }
 
         try {
-            const response = await fetch(ROLES_URL + "/" + role.id + "/status", {
+            // [CHANGED - login] fetch -> apiFetch
+            const response = await apiFetch(ROLES_URL + "/" + role.id + "/status", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ status })
@@ -904,6 +951,12 @@
         resetPasswordFields(user.hasPassword
             ? "(leave blank to keep the current one)"
             : "(no password set yet, optional)");
+        // [ADDED - login] an admin cannot change their own role or status (the server blocks it too)
+        const editingSelf = user.id === currentUser.id;
+        roleInput.disabled = editingSelf;
+        statusInput.disabled = editingSelf;
+        roleInput.title = editingSelf ? "You cannot change your own role" : "";
+        statusInput.title = editingSelf ? "You cannot deactivate your own account" : "";
         formTitle.textContent = "Edit User #" + user.id;
         submitBtn.textContent = "Save Changes";
         cancelBtn.hidden = false;
@@ -918,6 +971,11 @@
         cancelBtn.hidden = true;
         clearFieldErrors();
         resetPasswordFields("");   // [ADDED - password]
+        // [ADDED - login] unlock the role and status boxes again
+        roleInput.disabled = false;
+        statusInput.disabled = false;
+        roleInput.title = "";
+        statusInput.title = "";
     }
 
     function clearFieldErrors() {
@@ -946,9 +1004,63 @@
         loadUsers();
     });
 
-    // Load roles and users when the page opens
-    loadRoles();   // [ADDED]
-    loadUsers();
+    // ---------- Login ----------
+    // [ADDED - login] start: everything in this Login section is new
+
+    let currentUser = null;   // the logged-in user, from GET /api/me
+
+    function isAdmin() {
+        return currentUser !== null && currentUser.roleName === "ADMIN";
+    }
+
+    // May the logged-in user delete this user? Nobody can delete themselves,
+    // and a Manager cannot delete an Admin. (The server checks the same rules;
+    // this only decides which buttons to show.)
+    function canDelete(user) {
+        if (user.id === currentUser.id) return false;
+        return isAdmin() || user.roleName !== "ADMIN";
+    }
+
+    // Shows the logged-in user in the header and hides what this role may not use
+    function applyPermissions() {
+        document.getElementById("current-user-name").textContent = currentUser.name;
+        const roleBadge = document.getElementById("current-user-role");
+        roleBadge.textContent = currentUser.roleName;
+        roleBadge.className = "badge role-" + currentUser.roleName;
+        document.getElementById("user-menu").hidden = false;
+
+        if (!isAdmin()) {
+            // Manager: no add / edit form, and the roles are read-only
+            document.getElementById("form-card").hidden = true;
+            document.querySelector("main").classList.add("no-form");
+            document.getElementById("roles-hint").textContent = "Only an Admin can activate or deactivate roles.";
+        }
+    }
+
+    // Runs when the page opens: find out who is logged in, then load the data
+    async function start() {
+        const response = await apiFetch("/api/me");   // not logged in -> apiFetch goes to the login page
+        if (!response.ok) {
+            showMessage("Could not load your account (status " + response.status + ")", "error");
+            return;
+        }
+        currentUser = await response.json();
+
+        // Users and Guests cannot use the CMS: send them to My Account
+        if (currentUser.roleName !== "ADMIN" && currentUser.roleName !== "MANAGER") {
+            location.href = "/account.html";
+            return;
+        }
+        applyPermissions();
+        loadRoles();
+        loadUsers();
+    }
+
+    document.getElementById("logout-btn").addEventListener("click", logout);
+    // [ADDED - login] end: Login section
+
+    // [CHANGED - login] was: loadRoles(); loadUsers();  Now we first check who is logged in.
+    start();
 </script>
 </body>
 </html>

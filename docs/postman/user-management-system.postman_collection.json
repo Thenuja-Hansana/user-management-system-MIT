@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "User Management System API",
-    "description": "REST endpoints for the User Management System. Start the app first (default http://localhost:8080).\n\nRun the folders IN ORDER (Collection Runner or one by one). Folder 1 saves the role ids into collection variables, and the other folders use them.\n\n1. Roles - read: lists roles and saves their ids.\n2. Users - read: list, search, get one, errors.\n3. Users - create, update, delete: uses its own test users and deletes them at the end. Checks status, createdAt and updatedAt.\n4. Roles - status rules: error cases and GUEST protection. Changes no data.\n5. Role deactivation flow: WARNING, this changes real data (see the folder description).\n\nEvery request has tests (see the Test Results tab).\n\nPasswords: creating a user needs a password (6+ characters with an uppercase letter, a lowercase letter, a number and a special character). When editing, leave it out to keep the current one. The API never sends a password back, only \"hasPassword\": true/false.",
+    "description": "REST endpoints for the User Management System. Start the app first (default http://localhost:8080).\n\nLOGIN: every request needs a logged-in session. Run folder 0 first: it logs in as the admin (adminEmail / adminPassword variables). Postman keeps the session cookie for you. The collection-level scripts also copy the security (CSRF) token from the XSRF-TOKEN cookie into the X-XSRF-TOKEN header of every request, which Spring Security needs on POST / PUT / PATCH / DELETE.\n\nRun the folders IN ORDER (Collection Runner or one by one). Folder 1 saves the role ids into collection variables, and the other folders use them.\n\n0. Login: logs in as the admin.\n1. Roles - read: lists roles and saves their ids.\n2. Users - read: list, search, get one, errors.\n3. Users - create, update, delete: uses its own test users and deletes them at the end. Checks status, createdAt and updatedAt.\n4. Roles - status rules: error cases and GUEST protection. Changes no data.\n5. Role deactivation flow: WARNING, this changes real data (see the folder description).\n6. Permissions: what Admin, Manager and User may and may not do. Creates its own test users and deletes them. Ends logged in as the admin.\n\nEvery request has tests (see the Test Results tab).\n\nPasswords: creating a user needs a password (6+ characters with an uppercase letter, a lowercase letter, a number and a special character). When editing, leave it out to keep the current one. The API never sends a password back, only \"hasPassword\": true/false.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -17,9 +17,141 @@
     { "key": "testUser2Id", "value": "" },
     { "key": "testUserCreatedAt", "value": "" },
     { "key": "testUserUpdatedAt", "value": "" },
-    { "key": "flowUserId", "value": "" }
+    { "key": "flowUserId", "value": "" },
+    { "key": "adminEmail", "value": "admin@cms.local" },
+    { "key": "adminPassword", "value": "Admin@123" },
+    { "key": "adminUserId", "value": "" },
+    { "key": "adminName", "value": "" },
+    { "key": "xsrfToken", "value": "" },
+    { "key": "permRunId", "value": "" },
+    { "key": "mgrUserId", "value": "" },
+    { "key": "usrUserId", "value": "" },
+    { "key": "inactiveUserId", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Send the security (CSRF) token with every request. Spring Security needs it on POST / PUT / PATCH / DELETE.",
+          "const token = pm.collectionVariables.get('xsrfToken');",
+          "if (token) pm.request.headers.upsert({ key: 'X-XSRF-TOKEN', value: token });"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Remember the newest security token from the XSRF-TOKEN cookie",
+          "const cookie = pm.cookies.get('XSRF-TOKEN');",
+          "if (cookie) pm.collectionVariables.set('xsrfToken', cookie);"
+        ]
+      }
+    }
   ],
   "item": [
+    {
+      "name": "0. Login (run first)",
+      "description": "Logs in as the admin. Postman keeps the session cookie, so the next folders run as the admin. The default admin is created by the app on startup when no admin can log in (see application.properties: app.admin.*).",
+      "item": [
+        {
+          "name": "Open login page - gets the security cookie (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('XSRF-TOKEN cookie was set', () => pm.expect(pm.cookies.has('XSRF-TOKEN')).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/login.html" }
+        },
+        {
+          "name": "Log in - wrong password (401)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Message: Invalid email or password', () => {",
+                  "    pm.expect(pm.response.json().message).to.eql('Invalid email or password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/login",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "{{adminEmail}}" },
+                { "key": "password", "value": "Wrong@999" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Log in as admin (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Admin is sent to the CMS page', () => {",
+                  "    pm.expect(pm.response.json().redirect).to.eql('/index.html');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/login",
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "{{adminEmail}}" },
+                { "key": "password", "value": "{{adminPassword}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Who am I - /api/me (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const me = pm.response.json();",
+                  "pm.test('Logged in as an ADMIN', () => pm.expect(me.roleName).to.eql('ADMIN'));",
+                  "pm.collectionVariables.set('adminUserId', me.id);",
+                  "pm.collectionVariables.set('adminName', me.name);"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/me" }
+        }
+      ]
+    },
     {
       "name": "1. Roles - read",
       "description": "Reads the roles. The first request saves every role id into collection variables (adminRoleId, managerRoleId, userRoleId, guestRoleId), so run it before the other folders.",
@@ -764,6 +896,33 @@
       "description": "Error cases and GUEST protection. Changes no data.",
       "item": [
         {
+          "name": "Deactivate ADMIN - not allowed (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Message says ADMIN cannot be deactivated', () => {",
+                  "    pm.expect(pm.response.json().message).to.eql('The ADMIN role cannot be deactivated');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/{{adminRoleId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"INACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
           "name": "Deactivate GUEST - not allowed (400)",
           "event": [
             {
@@ -1134,6 +1293,316 @@
             "header": [],
             "url": "{{baseUrl}}/api/users/{{flowUserId}}"
           }
+        }
+      ]
+    },
+    {
+      "name": "6. Permissions - Admin, Manager, User",
+      "description": "Checks who may do what. Starts logged in as the admin (folder 0), creates a test manager, a test user and an inactive test user, logs in as each of them, and deletes the test users at the end. Ends logged in as the admin again.\n\nAdmin: everything, but cannot delete themselves or change their own role / status.\nManager: list users, delete users (not Admins, not themselves). Nothing else.\nUser / Guest: only their own details (/api/me).",
+      "item": [
+        {
+          "name": "Admin: cannot delete own account (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+            "pm.test('Message', () => pm.expect(pm.response.json().message).to.eql('You cannot delete your own account'));"
+          ] } }],
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/users/{{adminUserId}}" }
+        },
+        {
+          "name": "Admin: cannot deactivate own account (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+            "pm.test('Error on the status field', () => {",
+            "    pm.expect(pm.response.json().fieldErrors.status).to.eql('You cannot deactivate your own account');",
+            "});"
+          ] } }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/{{adminUserId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{adminName}}\",\n  \"email\": \"{{adminEmail}}\",\n  \"roleId\": {{adminRoleId}},\n  \"status\": \"INACTIVE\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Admin: cannot change own role (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+            "pm.test('Error on the roleId field', () => {",
+            "    pm.expect(pm.response.json().fieldErrors.roleId).to.eql('You cannot change your own role');",
+            "});"
+          ] } }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/{{adminUserId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"{{adminName}}\",\n  \"email\": \"{{adminEmail}}\",\n  \"roleId\": {{userRoleId}}\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Admin: create test manager (201)",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "pm.collectionVariables.set('permRunId', Date.now());"
+            ] } },
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('mgrUserId', pm.response.json().id);"
+            ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Perm Test Manager\",\n  \"email\": \"perm.mgr.{{permRunId}}@example.com\",\n  \"roleId\": {{managerRoleId}},\n  \"password\": \"Test@123\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Admin: create test user (201)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('usrUserId', pm.response.json().id);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Perm Test User\",\n  \"email\": \"perm.usr.{{permRunId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"password\": \"Test@123\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Admin: create inactive test user (201)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+            "pm.collectionVariables.set('inactiveUserId', pm.response.json().id);"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Perm Test Inactive\",\n  \"email\": \"perm.ina.{{permRunId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"status\": \"INACTIVE\",\n  \"password\": \"Test@123\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Log out (204)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+          ] } }],
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/logout" }
+        },
+        {
+          "name": "Logged out: the API needs a login (401)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+            "pm.test('Message: Please log in', () => pm.expect(pm.response.json().message).to.eql('Please log in'));"
+          ] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "Open login page (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+          ] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/login.html" }
+        },
+        {
+          "name": "Inactive user cannot log in (401)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+            "pm.test('Message says the account is inactive', () => {",
+            "    pm.expect(pm.response.json().message).to.include('inactive');",
+            "});"
+          ] } }],
+          "request": {
+            "method": "POST", "header": [], "url": "{{baseUrl}}/login",
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "email", "value": "perm.ina.{{permRunId}}@example.com" },
+              { "key": "password", "value": "Test@123" }
+            ] }
+          }
+        },
+        {
+          "name": "Log in as the test user (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('User is sent to My Account', () => pm.expect(pm.response.json().redirect).to.eql('/account.html'));"
+          ] } }],
+          "request": {
+            "method": "POST", "header": [], "url": "{{baseUrl}}/login",
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "email", "value": "perm.usr.{{permRunId}}@example.com" },
+              { "key": "password", "value": "Test@123" }
+            ] }
+          }
+        },
+        {
+          "name": "User: sees own details (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "const me = pm.response.json();",
+            "pm.test('It is the test user', () => {",
+            "    pm.expect(me.id).to.eql(Number(pm.collectionVariables.get('usrUserId')));",
+            "    pm.expect(me.roleName).to.eql('USER');",
+            "});"
+          ] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/me" }
+        },
+        {
+          "name": "User: cannot list users (403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "User: cannot delete users (403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/users/{{mgrUserId}}" }
+        },
+        {
+          "name": "Log out (204)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+          ] } }],
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/logout" }
+        },
+        {
+          "name": "Open login page (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+          ] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/login.html" }
+        },
+        {
+          "name": "Log in as the test manager (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('Manager is sent to the CMS page', () => pm.expect(pm.response.json().redirect).to.eql('/index.html'));"
+          ] } }],
+          "request": {
+            "method": "POST", "header": [], "url": "{{baseUrl}}/login",
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "email", "value": "perm.mgr.{{permRunId}}@example.com" },
+              { "key": "password", "value": "Test@123" }
+            ] }
+          }
+        },
+        {
+          "name": "Manager: can list users (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('Returns a list', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/users" }
+        },
+        {
+          "name": "Manager: cannot create users (403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Not Allowed\",\n  \"email\": \"perm.no.{{permRunId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"password\": \"Test@123\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Manager: cannot edit users (403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/{{usrUserId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Changed By Manager\",\n  \"email\": \"perm.usr.{{permRunId}}@example.com\",\n  \"roleId\": {{userRoleId}}\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Manager: cannot change roles (403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 403', () => pm.response.to.have.status(403));"
+          ] } }],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/{{userRoleId}}/status",
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"ACTIVE\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Manager: cannot delete an Admin (403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 403', () => pm.response.to.have.status(403));",
+            "pm.test('Message', () => pm.expect(pm.response.json().message).to.eql('Managers cannot delete Admin users'));"
+          ] } }],
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/users/{{adminUserId}}" }
+        },
+        {
+          "name": "Manager: cannot delete themselves (400)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+            "pm.test('Message', () => pm.expect(pm.response.json().message).to.eql('You cannot delete your own account'));"
+          ] } }],
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/users/{{mgrUserId}}" }
+        },
+        {
+          "name": "Manager: deletes the test user (204)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+          ] } }],
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/users/{{usrUserId}}" }
+        },
+        {
+          "name": "Log out (204)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+          ] } }],
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/logout" }
+        },
+        {
+          "name": "Open login page (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+          ] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/login.html" }
+        },
+        {
+          "name": "Log in as admin again (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));"
+          ] } }],
+          "request": {
+            "method": "POST", "header": [], "url": "{{baseUrl}}/login",
+            "body": { "mode": "urlencoded", "urlencoded": [
+              { "key": "email", "value": "{{adminEmail}}" },
+              { "key": "password", "value": "{{adminPassword}}" }
+            ] }
+          }
+        },
+        {
+          "name": "Admin: who am I (200)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+            "pm.test('Back as ADMIN', () => pm.expect(pm.response.json().roleName).to.eql('ADMIN'));"
+          ] } }],
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/me" }
+        },
+        {
+          "name": "Admin: delete the test manager (204)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+          ] } }],
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/users/{{mgrUserId}}" }
+        },
+        {
+          "name": "Admin: delete the inactive test user (204)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+          ] } }],
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/api/users/{{inactiveUserId}}" }
         }
       ]
     }

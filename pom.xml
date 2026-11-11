@@ -47,11 +47,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
-		<!-- [ADDED - password] BCrypt password hashing only (not the full Spring Security login system).
-		     The version comes from the Spring Boot parent. -->
+		<!-- [CHANGED - login] was spring-security-crypto (only password hashing).
+		     Now the full Spring Security: login, logout, sessions, role checks.
+		     It still includes the BCrypt password hashing. The version comes from the Spring Boot parent. -->
 		<dependency>
-			<groupId>org.springframework.security</groupId>
-			<artifactId>spring-security-crypto</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
 		<dependency>

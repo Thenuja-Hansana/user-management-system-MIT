@@ -1,6 +1,7 @@
 package com.mit_project.cms.repository;
 
 import com.mit_project.cms.model.Role;                                  // [ADDED]
+import com.mit_project.cms.model.Status;                                // [ADDED - login]
 import com.mit_project.cms.model.User;
 import java.time.LocalDateTime;                                         // [ADDED]
 import java.util.List;
@@ -59,6 +60,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // [ADDED] count users per role
     // How many users have this role. Shown in the roles table.
     long countByRole(Role role);
+
+    // [ADDED - login] true if at least one user with this role and status has a password,
+    // i.e. "is there an active admin who can log in?". Used to decide if the default admin is needed.
+    boolean existsByRoleAndStatusAndPasswordHashIsNotNull(Role role, Status status);
 
     // [ADDED] move users to another role (used to move them to GUEST)
     // Moves every user of one role to another role in a single UPDATE statement.

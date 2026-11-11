@@ -50,8 +50,9 @@ public class RoleService {
         }
 
         // GUEST is the fallback role, so it must always stay active
-        if (role.isGuest() && status == Status.INACTIVE) {
-            throw new InvalidOperationException("The " + Role.GUEST + " role cannot be deactivated");
+        // [CHANGED - login] ADMIN must always stay active too, so admins can never be locked out
+        if ((role.isGuest() || role.isAdmin()) && status == Status.INACTIVE) {
+            throw new InvalidOperationException("The " + role.getName() + " role cannot be deactivated");
         }
 
         role.setStatus(status);

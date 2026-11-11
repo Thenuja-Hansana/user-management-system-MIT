@@ -27,6 +27,10 @@ public class Role {
     // its users are moved to this role. GUEST itself can never be inactive.
     public static final String GUEST = "GUEST";
 
+    // [ADDED - login] Name of the admin role. It can never be inactive either,
+    // otherwise nobody could log in as an admin any more.
+    public static final String ADMIN = "ADMIN";
+
     @Id                                                    // Primary key
     @GeneratedValue(strategy = GenerationType.IDENTITY)    // The database numbers it automatically
     private Long id;
@@ -70,6 +74,11 @@ public class Role {
     // true for the GUEST role
     public boolean isGuest() {
         return GUEST.equals(name);
+    }
+
+    // [ADDED - login] true for the ADMIN role
+    public boolean isAdmin() {
+        return ADMIN.equals(name);
     }
 
     public Long getId() {

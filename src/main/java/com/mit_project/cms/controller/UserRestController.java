@@ -2,12 +2,14 @@ package com.mit_project.cms.controller;
 
 import com.mit_project.cms.dto.UserRequest;
 import com.mit_project.cms.dto.UserResponse;
+import com.mit_project.cms.security.CmsUserDetails;                              // [ADDED - login]
 import com.mit_project.cms.service.UserService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;     // [ADDED - login]
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -68,16 +70,21 @@ public class UserRestController {
     }
 
     // PUT /api/users/1 -> update a user. The data is validated the same way.
+    // [CHANGED - login] also receives the logged-in user (@AuthenticationPrincipal),
+    // so the service can stop an admin from changing their own role or status
     @PutMapping("/{id}")
-    public UserResponse update(@PathVariable Long id, @Valid @RequestBody UserRequest request) {
-        return userService.update(id, request);
+    public UserResponse update(@PathVariable Long id, @Valid @RequestBody UserRequest request,
+                               @AuthenticationPrincipal CmsUserDetails currentUser) {
+        return userService.update(id, request, currentUser);
     }
 
     // DELETE /api/users/1 -> delete a user
     // Returns status 204 No Content (success, nothing to send back)
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        userService.delete(id);
+    // [CHANGED - login] also receives the logged-in user: nobody can delete themselves,
+    // and a Manager cannot delete an Admin
+    public void delete(@PathVariable Long id, @AuthenticationPrincipal CmsUserDetails currentUser) {
+        userService.delete(id, currentUser);
     }
 }

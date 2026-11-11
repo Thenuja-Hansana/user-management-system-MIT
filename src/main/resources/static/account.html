@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<!-- [NEW FILE - login] Added in the Login update. "My Account": any logged-in user sees their own details (read-only). -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Account · User Management</title>
+    <style>
+        :root {
+            --bg: #f5f6fa;
+            --surface: #ffffff;
+            --text: #1f2430;
+            --muted: #6b7280;
+            --border: #e5e7ee;
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+
+        body {
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.5;
+        }
+
+        /* Header: same look as the CMS */
+        header {
+            background: linear-gradient(120deg, #1e1b4b 0%, #312e81 55%, #4f46e5 100%);
+            color: #fff;
+            padding: 18px 32px;
+            box-shadow: 0 4px 20px rgba(49, 46, 129, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        header h1 { margin: 0; font-size: 1.35rem; font-weight: 650; letter-spacing: -0.01em; display: flex; align-items: center; gap: 12px; }
+        header h1::before {
+            content: "";
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #a5b4fc;
+            box-shadow: 0 0 0 4px rgba(165, 180, 252, 0.25);
+        }
+        .user-menu { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; }
+        .btn-logout {
+            padding: 7px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-logout:hover { background: rgba(255, 255, 255, 0.25); }
+        .btn-logout:focus-visible { outline: 3px solid rgba(255, 255, 255, 0.6); outline-offset: 2px; }
+
+        main { max-width: 640px; margin: 40px auto; padding: 0 16px; }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 28px;
+            box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.05);
+            animation: cardIn 0.6s var(--ease) both;
+        }
+
+        .profile-head { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+        .avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: #eef0ff;
+            color: var(--primary);
+            font-size: 1.3rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .profile-head h2 { margin: 0; font-size: 1.25rem; letter-spacing: -0.01em; overflow-wrap: anywhere; }
+        .profile-head p { margin: 2px 0 0; color: var(--muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+
+        /* The details list: label on the left, value on the right */
+        dl { display: grid; grid-template-columns: 140px 1fr; margin: 0; border-top: 1px solid var(--border); }
+        dt, dd { padding: 12px 0; border-bottom: 1px solid var(--border); margin: 0; }
+        dt { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+        dd { font-size: 0.92rem; overflow-wrap: anywhere; }
+        @media (max-width: 480px) {
+            dl { grid-template-columns: 1fr; }
+            dt { border-bottom: none; padding-bottom: 0; }
+            dd { padding-top: 2px; }
+        }
+
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 600; background: #eceef4; color: #4b5563; }
+        .role-ADMIN { background: #fde8e7; color: #b42318; }
+        .role-MANAGER { background: #fef3d6; color: #a15c07; }
+        .role-USER { background: #dcf5e4; color: #157f3b; }
+        .role-GUEST { background: #e0efff; color: #1d5fae; }
+        .status-ACTIVE { background: #dcf5e4; color: #157f3b; }
+        .status-INACTIVE { background: #eceef4; color: #6b7280; }
+
+        .note { margin: 18px 0 0; color: var(--muted); font-size: 0.85rem; }
+        .cms-link {
+            display: inline-block;
+            margin-top: 18px;
+            padding: 9px 16px;
+            border-radius: 8px;
+            background: var(--primary);
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .cms-link:hover { background: var(--primary-dark); }
+        .error { color: #b42318; }
+
+        @keyframes cardIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>User Management System</h1>
+    <div class="user-menu">
+        <button type="button" class="btn-logout" id="logout-btn">Log out</button>
+    </div>
+</header>
+
+<main>
+    <section class="card" id="account-card" aria-live="polite">
+        <p id="loading">Loading your details...</p>
+
+        <div id="account" hidden>
+            <div class="profile-head">
+                <div class="avatar" id="avatar" aria-hidden="true"></div>
+                <div>
+                    <h2 id="acc-name"></h2>
+                    <p id="acc-email"></p>
+                </div>
+            </div>
+
+            <dl>
+                <dt>Role</dt>          <dd id="acc-role"></dd>
+                <dt>Status</dt>        <dd id="acc-status"></dd>
+                <dt>Member since</dt>  <dd id="acc-created"></dd>
+                <dt>Last updated</dt>  <dd id="acc-updated"></dd>
+            </dl>
+
+            <p class="note" id="readonly-note">This page is read-only. To change your details, please contact an administrator.</p>
+            <!-- Only shown to Admins and Managers -->
+            <a class="cms-link" id="cms-link" href="/index.html" hidden>Open user management</a>
+        </div>
+    </section>
+</main>
+
+<script src="/js/auth.js"></script>
+<script>
+    function formatDate(value) {
+        return value ? new Date(value).toLocaleString() : "";
+    }
+
+    function badge(text, className) {
+        const span = document.createElement("span");
+        span.className = "badge " + className;
+        span.textContent = text;   // textContent: never treated as HTML
+        return span;
+    }
+
+    async function loadAccount() {
+        try {
+            const response = await apiFetch("/api/me");   // 401 -> apiFetch sends us to the login page
+            if (!response.ok) throw new Error("Could not load your details (status " + response.status + ")");
+            const me = await response.json();
+
+            document.getElementById("avatar").textContent = me.name.trim().charAt(0).toUpperCase();
+            document.getElementById("acc-name").textContent = me.name;
+            document.getElementById("acc-email").textContent = me.email;
+            document.getElementById("acc-role").appendChild(badge(me.roleName, "role-" + me.roleName));
+            document.getElementById("acc-status").appendChild(
+                badge(me.status === "ACTIVE" ? "Active" : "Inactive", "status-" + me.status));
+            document.getElementById("acc-created").textContent = formatDate(me.createdAt);
+            document.getElementById("acc-updated").textContent = formatDate(me.updatedAt);
+
+            // Admins and Managers can go to the CMS
+            if (me.roleName === "ADMIN" || me.roleName === "MANAGER") {
+                document.getElementById("cms-link").hidden = false;
+            }
+
+            document.getElementById("loading").hidden = true;
+            document.getElementById("account").hidden = false;
+        } catch (err) {
+            const loading = document.getElementById("loading");
+            loading.textContent = err.message;
+            loading.className = "error";
+        }
+    }
+
+    document.getElementById("logout-btn").addEventListener("click", logout);
+    loadAccount();
+</script>
+</body>
+</html>

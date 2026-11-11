@@ -11,7 +11,9 @@ import com.mit_project.cms.model.Status;                          // [ADDED]
 import com.mit_project.cms.model.User;
 import com.mit_project.cms.repository.RoleRepository;
 import com.mit_project.cms.repository.UserRepository;
+import com.mit_project.cms.security.CmsUserDetails;                    // [ADDED - login]
 import java.util.List;
+import org.springframework.security.access.AccessDeniedException;      // [ADDED - login]
 import org.springframework.security.crypto.password.PasswordEncoder;   // [ADDED - password]
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -91,9 +93,21 @@ public class UserService {
 
     // Update an existing user
     @Transactional
-    public UserResponse update(Long id, UserRequest request) {
+    // [CHANGED - login] new parameter currentUser = who is logged in (only Admins can call this)
+    public UserResponse update(Long id, UserRequest request, CmsUserDetails currentUser) {
         // Step 1: the user must exist
         User user = getUserOrThrow(id);
+
+        // [ADDED - login] an admin cannot change their OWN role or deactivate THEMSELVES,
+        // otherwise they could lock themselves out
+        if (id.equals(currentUser.getId())) {
+            if (!user.getRole().getId().equals(request.getRoleId())) {
+                throw new InvalidOperationException("roleId", "You cannot change your own role");
+            }
+            if (request.getStatus() == Status.INACTIVE) {
+                throw new InvalidOperationException("status", "You cannot deactivate your own account");
+            }
+        }
 
         // Step 2: no OTHER user may have this email (the user can keep their own email)
         if (userRepository.existsByEmailAndIdNot(request.getEmail().trim(), id)) {
@@ -114,12 +128,22 @@ public class UserService {
     }
 
     // Delete a user. Throws 404 if it does not exist.
+    // [CHANGED - login] new parameter currentUser = who is logged in (an Admin or a Manager)
     @Transactional
-    public void delete(Long id) {
-        if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("User not found with id " + id);
+    public void delete(Long id, CmsUserDetails currentUser) {
+        // [CHANGED - login] the user is loaded (not just "does it exist?") because we need their role
+        User user = getUserOrThrow(id);
+
+        // [ADDED - login] nobody can delete their own account
+        if (id.equals(currentUser.getId())) {
+            throw new InvalidOperationException("You cannot delete your own account");
         }
-        userRepository.deleteById(id);
+        // [ADDED - login] a Manager cannot delete an Admin (403 Forbidden)
+        if (!currentUser.isAdmin() && user.getRole().isAdmin()) {
+            throw new AccessDeniedException("Managers cannot delete Admin users");
+        }
+
+        userRepository.delete(user);
     }
 
     // Helper: find a user or throw "not found" (the handler turns it into 404)
