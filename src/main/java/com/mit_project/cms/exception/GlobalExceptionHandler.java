@@ -1,5 +1,6 @@
 package com.mit_project.cms.exception;
 
+import com.mit_project.cms.controller.RoleRestController;   // [ADDED]
 import com.mit_project.cms.controller.UserRestController;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
@@ -14,12 +15,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 /**
- * Catches errors from UserRestController and turns them into clean JSON.
- * This way the controller does not need try/catch blocks.
- * It only applies to UserRestController, because the web pages
+ * Catches errors from the REST controllers and turns them into clean JSON.
+ * This way the controllers do not need try/catch blocks.
+ * It only applies to the REST controllers, because the web pages
  * will handle errors in a different way.
  */
-@RestControllerAdvice(assignableTypes = UserRestController.class)
+// [CHANGED] now also handles errors from RoleRestController
+@RestControllerAdvice(assignableTypes = {UserRestController.class, RoleRestController.class})
 public class GlobalExceptionHandler {
 
     // User or role not found -> 404
@@ -34,6 +36,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiError> handleDuplicate(DuplicateResourceException ex,
                                                     HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, ex.getMessage(), request, Map.of());
+    }
+
+    // [ADDED] handler for InvalidOperationException
+    // Business rule broken (inactive role, deactivating GUEST) -> 400.
+    // If the error belongs to a form field, it is sent in fieldErrors too.
+    @ExceptionHandler(InvalidOperationException.class)
+    public ResponseEntity<ApiError> handleInvalidOperation(InvalidOperationException ex,
+                                                           HttpServletRequest request) {
+        Map<String, String> fieldErrors = ex.getField() == null
+                ? Map.of()
+                : Map.of(ex.getField(), ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request, fieldErrors);
     }
 
     // Validation failed (@Valid) -> 400, with the error for each field

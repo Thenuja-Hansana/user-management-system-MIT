@@ -21,21 +21,35 @@ public class UserMapper {
                 user.getEmail(),
                 user.getRole().getId(),      // Role id
                 user.getRole().getName(),    // Role name, for example ADMIN
-                user.getCreatedAt());
+                user.getStatus(),            // [ADDED]
+                user.getCreatedAt(),
+                user.getUpdatedAt());        // [ADDED]
     }
 
     // Request -> new entity. Used when creating a user.
     // trim() removes extra spaces at the start and end.
     // The role is passed in because the request only has a roleId.
+    // If no status is sent, the user keeps the default (ACTIVE).
     public User toEntity(UserRequest request, Role role) {
-        return new User(request.getName().trim(), request.getEmail().trim(), role);
+        // [CHANGED] the user is stored in a variable so the status can be set before returning
+        User user = new User(request.getName().trim(), request.getEmail().trim(), role);
+        // [ADDED] use the status from the request, if one was sent
+        if (request.getStatus() != null) {
+            user.setStatus(request.getStatus());
+        }
+        return user;
     }
 
     // Request -> existing entity. Used when updating a user.
     // It changes the values of the user that is already loaded from the database.
+    // If no status is sent, the current status is kept.
     public void updateEntity(User user, UserRequest request, Role role) {
         user.setName(request.getName().trim());
         user.setEmail(request.getEmail().trim());
         user.setRole(role);
+        // [ADDED] change the status only if one was sent
+        if (request.getStatus() != null) {
+            user.setStatus(request.getStatus());
+        }
     }
 }

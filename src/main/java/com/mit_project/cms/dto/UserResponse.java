@@ -1,5 +1,6 @@
 package com.mit_project.cms.dto;
 
+import com.mit_project.cms.model.Status;   // [ADDED]
 import java.time.LocalDateTime;
 
 /**
@@ -15,17 +16,23 @@ public class UserResponse {
     private final String email;
     private final Long roleId;        // Id of the user's role
     private final String roleName;    // Name of the role, for example ADMIN
+    private final Status status;      // ACTIVE or INACTIVE   [ADDED]
     private final LocalDateTime createdAt;
+    private final LocalDateTime updatedAt;   // [ADDED]
 
     // All values are set here, when the object is created
+    // [CHANGED] constructor now also takes status and updatedAt
     public UserResponse(Long id, String name, String email,
-                        Long roleId, String roleName, LocalDateTime createdAt) {
+                        Long roleId, String roleName, Status status,
+                        LocalDateTime createdAt, LocalDateTime updatedAt) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.roleId = roleId;
         this.roleName = roleName;
+        this.status = status;           // [ADDED]
         this.createdAt = createdAt;
+        this.updatedAt = updatedAt;     // [ADDED]
     }
 
     // Only getters, no setters (read-only). Spring uses them to build the JSON.
@@ -49,7 +56,17 @@ public class UserResponse {
         return roleName;
     }
 
+    // [ADDED]
+    public Status getStatus() {
+        return status;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    // [ADDED]
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
     }
 }

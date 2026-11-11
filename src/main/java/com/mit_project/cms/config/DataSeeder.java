@@ -35,7 +35,15 @@ public class DataSeeder implements CommandLineRunner {   // CommandLineRunner = 
         // Step 1: create the roles, but only if the roles table is empty
         if (roleRepository.count() == 0) {
             roleRepository.saveAll(List.of(
-                    new Role("ADMIN"), new Role("MANAGER"), new Role("USER")));
+                    new Role("ADMIN"), new Role("MANAGER"), new Role("USER"),
+                    new Role(Role.GUEST)));   // [ADDED] GUEST role
+        }
+
+        // [ADDED] make sure GUEST exists
+        // Older databases were created with only 3 roles: add GUEST if it is missing.
+        // GUEST is needed because users move to it when their role becomes inactive.
+        if (roleRepository.findByName(Role.GUEST).isEmpty()) {
+            roleRepository.save(new Role(Role.GUEST));
         }
 
         // Step 2: create the users, but only if the users table is empty

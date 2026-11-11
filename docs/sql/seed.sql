@@ -1,7 +1,9 @@
 USE user_management_db;
 GO
 
-INSERT INTO dbo.roles (name) VALUES ('ADMIN'), ('MANAGER'), ('USER');
+-- [CHANGED] 'GUEST' added to the list of roles
+-- status and updated_at use their column defaults (ACTIVE, now)
+INSERT INTO dbo.roles (name) VALUES ('ADMIN'), ('MANAGER'), ('USER'), ('GUEST');
 
 INSERT INTO dbo.users (name, email, role_id) VALUES
 ('Alice Perera',       'alice.perera@example.com',    (SELECT id FROM dbo.roles WHERE name = 'ADMIN')),

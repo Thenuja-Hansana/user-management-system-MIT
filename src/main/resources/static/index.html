@@ -18,6 +18,7 @@
             --danger-dark: #b91c1c;
             --warn: #f59e0b;
             --warn-dark: #d97706;
+            --success: #157f3b;   /* [ADDED] */
             --ease: cubic-bezier(0.22, 1, 0.36, 1);
         }
 
@@ -70,6 +71,9 @@
         }
         @media (max-width: 1200px) { main { grid-template-columns: minmax(0, 1fr); } }
 
+        /* [ADDED] right column that holds the Users and Roles cards */
+        .content { display: grid; gap: 24px; min-width: 0; }
+
         .card {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -77,13 +81,16 @@
             padding: 24px;
             box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.05);
             animation: cardIn 0.6s var(--ease) both;
+            min-width: 0;   /* [ADDED] */
         }
-        main .card:nth-child(2) { animation-delay: 0.1s; }
-        main .card { min-width: 0; }
-        main .card:first-child { position: sticky; top: 24px; }
-        @media (max-width: 1200px) { main .card:first-child { position: static; } }
+        /* [CHANGED] cards are now selected by id instead of :first-child / :nth-child(2) */
+        #users-card { animation-delay: 0.1s; }
+        #roles-card { animation-delay: 0.2s; }
+        #form-card { position: sticky; top: 24px; }
+        @media (max-width: 1200px) { #form-card { position: static; } }
 
         h2 { margin-top: 0; font-size: 1.1rem; font-weight: 650; letter-spacing: -0.01em; }
+        .card-hint { margin: -8px 0 16px; color: var(--muted); font-size: 0.85rem; }   /* [ADDED] */
 
         /* ---------- Form ---------- */
         label { display: block; margin: 14px 0 6px; font-weight: 600; font-size: 0.85rem; color: #374151; }
@@ -124,9 +131,11 @@
             font-family: inherit;
             transition: background 0.2s, transform 0.15s var(--ease), box-shadow 0.2s;
         }
-        button:hover { transform: translateY(-1px); }
-        button:active { transform: translateY(0) scale(0.97); }
+        /* [CHANGED] :not(:disabled) so disabled buttons do not move on hover/click */
+        button:hover:not(:disabled) { transform: translateY(-1px); }
+        button:active:not(:disabled) { transform: translateY(0) scale(0.97); }
         button:focus-visible { outline: 3px solid rgba(79, 70, 229, 0.4); outline-offset: 2px; }
+        button:disabled { cursor: not-allowed; opacity: 0.55; }   /* [ADDED] */
 
         .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3); }
         .btn-primary:hover { background: var(--primary-dark); box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4); }
@@ -135,7 +144,10 @@
         .btn-edit { background: #fff4de; color: var(--warn-dark); }
         .btn-edit:hover { background: var(--warn); color: #fff; }
         .btn-delete { background: #feeceb; color: var(--danger); }
-        .btn-delete:hover { background: var(--danger); color: #fff; }
+        .btn-delete:hover:not(:disabled) { background: var(--danger); color: #fff; }   /* [CHANGED] */
+        /* [ADDED] green Activate button */
+        .btn-activate { background: #dcf5e4; color: var(--success); }
+        .btn-activate:hover { background: var(--success); color: #fff; }
 
         .form-actions { margin-top: 20px; display: flex; gap: 8px; }
         .form-actions button[hidden] { display: none; }
@@ -149,8 +161,8 @@
             background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") no-repeat 12px center;
         }
 
-        /* ---------- Table ---------- */
-        .card:nth-child(2) { overflow-x: auto; }
+        /* ---------- Tables ---------- */
+        .table-wrap { overflow-x: auto; }   /* [CHANGED] was .card:nth-child(2) */
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
         th {
@@ -159,6 +171,7 @@
             font-size: 0.78rem;
             font-weight: 600;
             letter-spacing: 0.02em;
+            white-space: nowrap;   /* [ADDED] */
         }
         th:first-child { border-top-left-radius: 8px; }
         th:last-child { border-top-right-radius: 8px; }
@@ -175,9 +188,11 @@
         tbody tr:nth-child(8) { animation-delay: 0.30s; }
         tbody tr:nth-child(n+9) { animation-delay: 0.34s; }
 
-        td:nth-child(5) { min-width: 110px; }
+        td.date { min-width: 110px; color: var(--muted); font-size: 0.84rem; }   /* [CHANGED] was td:nth-child(5) */
+        td.num { font-variant-numeric: tabular-nums; }   /* [ADDED] */
+        tr.inactive td:not(.actions) { color: #9ca3af; }   /* [ADDED] grey out inactive rows */
         td.actions { white-space: nowrap; }
-        /* Keep the Edit/Delete column always visible, even when the table scrolls sideways */
+        /* Keep the action column always visible, even when the table scrolls sideways */
         th:last-child, td.actions {
             position: sticky;
             right: 0;
@@ -189,7 +204,7 @@
         td.actions button { padding: 5px 12px; margin-right: 6px; font-size: 0.82rem; }
         td.actions button:last-child { margin-right: 0; }
 
-        .role {
+        .badge {   /* [CHANGED] renamed from .role so it is used for role AND status pills */
             display: inline-block;
             padding: 3px 10px;
             border-radius: 999px;
@@ -197,13 +212,41 @@
             font-weight: 600;
             background: #eceef4;
             color: #4b5563;
+            white-space: nowrap;   /* [ADDED] */
         }
         .role-ADMIN { background: #fde8e7; color: #b42318; }
         .role-MANAGER { background: #fef3d6; color: #a15c07; }
         .role-USER { background: #dcf5e4; color: #157f3b; }
+        /* [ADDED] GUEST pill and Active / Inactive status pills */
+        .role-GUEST { background: #e0efff; color: #1d5fae; }
+        .status-ACTIVE { background: #dcf5e4; color: #157f3b; }
+        .status-INACTIVE { background: #eceef4; color: #6b7280; }
+        .status-ACTIVE::before, .status-INACTIVE::before {
+            content: "";
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
 
         /* ---------- Messages ---------- */
-        .message { padding: 12px 14px; border-radius: 10px; margin-bottom: 14px; display: none; font-size: 0.9rem; font-weight: 500; }
+        /* [CHANGED] the message is now a floating pop-up in the top-right corner */
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            max-width: min(380px, calc(100vw - 40px));
+            padding: 12px 14px;
+            border-radius: 10px;
+            display: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+        }
         .message.success {
             display: block;
             background: #e8f8ee;
@@ -243,9 +286,12 @@
     <h1>User Management System</h1>
 </header>
 
+<!-- [CHANGED] message box moved here (it was inside the users card) -->
+<div id="message" class="message" role="status" aria-live="polite"></div>
+
 <main>
     <!-- Left side: form to add or edit a user -->
-    <section class="card">
+    <section class="card" id="form-card"> <!-- [CHANGED] id added -->
         <h2 id="form-title">Add User</h2>
         <form id="user-form" novalidate>
             <input type="hidden" id="user-id">
@@ -259,13 +305,21 @@
             <div class="field-error" id="email-error"></div>
 
             <label for="roleId">Role</label>
+            <!-- [CHANGED] the hard-coded ADMIN/MANAGER/USER options were removed. -->
+            <!-- Options are loaded from /api/roles. Inactive roles are shown but cannot be picked. -->
             <select id="roleId">
                 <option value="">-- Select a role --</option>
-                <option value="1">ADMIN</option>
-                <option value="2">MANAGER</option>
-                <option value="3">USER</option>
             </select>
             <div class="field-error" id="roleId-error"></div>
+
+            <!-- [ADDED] start: Status field -->
+            <label for="status">Status</label>
+            <select id="status">
+                <option value="ACTIVE">Active</option>
+                <option value="INACTIVE">Inactive</option>
+            </select>
+            <div class="field-error" id="status-error"></div>
+            <!-- [ADDED] end: Status field -->
 
             <div class="form-actions">
                 <button type="submit" class="btn-primary" id="submit-btn">Add User</button>
@@ -274,34 +328,67 @@
         </form>
     </section>
 
-    <!-- Right side: list of users -->
-    <section class="card">
-        <h2>Users</h2>
-        <div id="message" class="message"></div>
+    <!-- [ADDED] wrapper for the right column (Users card + Roles card) -->
+    <div class="content">
+        <!-- List of users -->
+        <!-- [CHANGED] users card: id added, table wrapped in .table-wrap, Status + Updated columns added -->
+        <section class="card" id="users-card">
+            <h2>Users</h2>
 
-        <div class="toolbar">
-            <input type="text" id="search" placeholder="Search by name or email...">
-            <button type="button" class="btn-secondary" id="clear-search">Clear</button>
-        </div>
+            <div class="toolbar">
+                <input type="text" id="search" placeholder="Search by name or email...">
+                <button type="button" class="btn-secondary" id="clear-search">Clear</button>
+            </div>
 
-        <table>
-            <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Created</th>
-                <th></th>
-            </tr>
-            </thead>
-            <tbody id="user-table"></tbody>
-        </table>
-    </section>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>    <!-- [ADDED] -->
+                        <th>Created</th>
+                        <th>Updated</th>   <!-- [ADDED] -->
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="user-table"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- [ADDED] start: Roles card -->
+        <!-- List of roles, with activate / deactivate -->
+        <section class="card" id="roles-card">
+            <h2>Roles</h2>
+            <p class="card-hint">Deactivating a role moves all of its users to GUEST. GUEST is always active.</p>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th>Users</th>
+                        <th>Updated</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="role-table"></tbody>
+                </table>
+            </div>
+        </section>
+        <!-- [ADDED] end: Roles card -->
+    </div>
 </main>
 
 <script>
     const API_URL = "/api/users";
+    const ROLES_URL = "/api/roles";   // [ADDED]
+    const GUEST = "GUEST";            // [ADDED]
 
     const form = document.getElementById("user-form");
     const formTitle = document.getElementById("form-title");
@@ -311,9 +398,38 @@
     const nameInput = document.getElementById("name");
     const emailInput = document.getElementById("email");
     const roleInput = document.getElementById("roleId");
+    const statusInput = document.getElementById("status");       // [ADDED]
     const searchInput = document.getElementById("search");
     const tableBody = document.getElementById("user-table");
+    const roleTableBody = document.getElementById("role-table"); // [ADDED]
     const messageBox = document.getElementById("message");
+
+    // [ADDED] start: helper functions
+    // Small helpers for building table cells
+    function formatDate(value) {
+        return value ? new Date(value).toLocaleString() : "";
+    }
+
+    function badge(text, className) {
+        const span = document.createElement("span");
+        span.className = "badge " + className;
+        span.textContent = text;
+        return span;
+    }
+
+    function statusBadge(status) {
+        return badge(status === "ACTIVE" ? "Active" : "Inactive", "status-" + status);
+    }
+
+    function emptyRow(body, colSpan, text) {
+        const cell = body.insertRow().insertCell();
+        cell.colSpan = colSpan;
+        cell.className = "empty";
+        cell.textContent = text;
+    }
+    // [ADDED] end: helper functions
+
+    // ---------- Users ----------
 
     // Load the users from the API and show them in the table
     async function loadUsers() {
@@ -336,28 +452,29 @@
         tableBody.innerHTML = "";
 
         if (users.length === 0) {
-            const row = tableBody.insertRow();
-            const cell = row.insertCell();
-            cell.colSpan = 6;
-            cell.className = "empty";
-            cell.textContent = "No users found.";
+            emptyRow(tableBody, 8, "No users found.");   // [CHANGED] uses the helper, 8 columns now
             return;
         }
 
         users.forEach(user => {
             const row = tableBody.insertRow();
+            if (user.status === "INACTIVE") row.className = "inactive";   // [ADDED]
+
             row.insertCell().textContent = user.id;
             row.insertCell().textContent = user.name;
             row.insertCell().textContent = user.email;
+            row.insertCell().appendChild(badge(user.roleName, "role-" + user.roleName));   // [CHANGED] uses badge()
+            row.insertCell().appendChild(statusBadge(user.status));                        // [ADDED] Status cell
 
-            const roleBadge = document.createElement("span");
-            roleBadge.className = "role role-" + user.roleName;
-            roleBadge.textContent = user.roleName;
-            row.insertCell().appendChild(roleBadge);
+            // [CHANGED] Created cell now uses formatDate() and the "date" class
+            const created = row.insertCell();
+            created.className = "date";
+            created.textContent = formatDate(user.createdAt);
 
-            row.insertCell().textContent = user.createdAt
-                ? new Date(user.createdAt).toLocaleString()
-                : "";
+            // [ADDED] Updated cell
+            const updated = row.insertCell();
+            updated.className = "date";
+            updated.textContent = formatDate(user.updatedAt);
 
             const actions = row.insertCell();
             actions.className = "actions";
@@ -385,7 +502,8 @@
         const body = {
             name: nameInput.value.trim(),
             email: emailInput.value.trim(),
-            roleId: roleInput.value ? Number(roleInput.value) : null
+            roleId: roleInput.value ? Number(roleInput.value) : null,
+            status: statusInput.value   // [ADDED]
         };
 
         try {
@@ -403,6 +521,7 @@
             showMessage(id ? "User updated." : "User added.", "success");
             resetForm();
             loadUsers();
+            loadRoles();   // [ADDED] user counts per role may have changed
         } catch (err) {
             showMessage("Could not reach the server.", "error");
         }
@@ -421,10 +540,126 @@
             // If we were editing this user, clear the form
             if (idInput.value === String(user.id)) resetForm();
             loadUsers();
+            loadRoles();   // [ADDED]
         } catch (err) {
             showMessage("Could not reach the server.", "error");
         }
     }
+
+    // ---------- Roles ----------
+    // [ADDED] start: everything in this Roles section is new
+
+    // Load the roles, then fill the roles table and the role dropdown
+    async function loadRoles() {
+        try {
+            const response = await fetch(ROLES_URL);
+            if (!response.ok) throw new Error("Could not load roles (status " + response.status + ")");
+            const roles = await response.json();
+            renderRoles(roles);
+            fillRoleSelect(roles);
+        } catch (err) {
+            showMessage(err.message, "error");
+        }
+    }
+
+    function renderRoles(roles) {
+        roleTableBody.innerHTML = "";
+
+        if (roles.length === 0) {
+            emptyRow(roleTableBody, 6, "No roles found.");
+            return;
+        }
+
+        roles.forEach(role => {
+            const row = roleTableBody.insertRow();
+            if (role.status === "INACTIVE") row.className = "inactive";
+
+            row.insertCell().textContent = role.id;
+            row.insertCell().appendChild(badge(role.name, "role-" + role.name));
+            row.insertCell().appendChild(statusBadge(role.status));
+
+            const count = row.insertCell();
+            count.className = "num";
+            count.textContent = role.userCount;
+
+            const updated = row.insertCell();
+            updated.className = "date";
+            updated.textContent = formatDate(role.updatedAt);
+
+            const actions = row.insertCell();
+            actions.className = "actions";
+            const btn = document.createElement("button");
+
+            if (role.status === "ACTIVE") {
+                btn.className = "btn-delete";
+                btn.textContent = "Deactivate";
+                if (role.name === GUEST) {
+                    btn.disabled = true;
+                    btn.title = "GUEST is the fallback role and is always active";
+                } else {
+                    btn.onclick = () => changeRoleStatus(role, "INACTIVE");
+                }
+            } else {
+                btn.className = "btn-activate";
+                btn.textContent = "Activate";
+                btn.onclick = () => changeRoleStatus(role, "ACTIVE");
+            }
+            actions.appendChild(btn);
+        });
+    }
+
+    // Rebuild the role dropdown. Inactive roles are shown but disabled.
+    // The current selection is kept if that role is still active.
+    function fillRoleSelect(roles) {
+        const selected = roleInput.value;
+        roleInput.length = 1;   // keep only the "-- Select a role --" option
+
+        roles.forEach(role => {
+            const option = document.createElement("option");
+            option.value = role.id;
+            option.textContent = role.status === "ACTIVE" ? role.name : role.name + " (inactive)";
+            option.disabled = role.status !== "ACTIVE";
+            roleInput.appendChild(option);
+        });
+
+        const stillValid = roles.some(r => String(r.id) === selected && r.status === "ACTIVE");
+        roleInput.value = stillValid ? selected : "";
+    }
+
+    async function changeRoleStatus(role, status) {
+        if (status === "INACTIVE") {
+            const moved = role.userCount === 1 ? "1 user" : role.userCount + " users";
+            if (!confirm("Deactivate " + role.name + "? " + moved + " will be moved to " + GUEST + ".")) return;
+        }
+
+        try {
+            const response = await fetch(ROLES_URL + "/" + role.id + "/status", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status })
+            });
+            if (!response.ok) {
+                await handleError(response);
+                return;
+            }
+
+            if (status === "INACTIVE") {
+                const moved = role.userCount === 1 ? "1 user" : role.userCount + " users";
+                showMessage(role.name + " deactivated. " + moved + " moved to " + GUEST + ".", "success");
+                // The user being edited may have just lost this role
+                if (idInput.value && roleInput.value === String(role.id)) resetForm();
+            } else {
+                showMessage(role.name + " activated.", "success");
+            }
+            loadRoles();
+            loadUsers();
+        } catch (err) {
+            showMessage("Could not reach the server.", "error");
+        }
+    }
+    // [ADDED] end: Roles section
+
+    // ---------- Shared ----------
 
     // Read the ApiError JSON from the backend and show it.
     // Validation errors (400) are shown under each field.
@@ -452,6 +687,7 @@
         nameInput.value = user.name;
         emailInput.value = user.email;
         roleInput.value = user.roleId;
+        statusInput.value = user.status;   // [ADDED]
         formTitle.textContent = "Edit User #" + user.id;
         submitBtn.textContent = "Save Changes";
         cancelBtn.hidden = false;
@@ -493,7 +729,8 @@
         loadUsers();
     });
 
-    // Load the users when the page opens
+    // Load roles and users when the page opens
+    loadRoles();   // [ADDED]
     loadUsers();
 </script>
 </body>

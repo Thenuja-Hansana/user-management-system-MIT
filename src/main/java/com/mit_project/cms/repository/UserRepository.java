@@ -1,10 +1,13 @@
 package com.mit_project.cms.repository;
 
+import com.mit_project.cms.model.Role;                                  // [ADDED]
 import com.mit_project.cms.model.User;
+import java.time.LocalDateTime;                                         // [ADDED]
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;               // [ADDED]
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -52,4 +55,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // :roleName is filled by @Param("roleName").
     @Query("SELECT u FROM User u JOIN FETCH u.role r WHERE r.name = :roleName")
     List<User> findByRoleName(@Param("roleName") String roleName);
+
+    // [ADDED] count users per role
+    // How many users have this role. Shown in the roles table.
+    long countByRole(Role role);
+
+    // [ADDED] move users to another role (used to move them to GUEST)
+    // Moves every user of one role to another role in a single UPDATE statement.
+    // Used when a role becomes inactive (its users go to GUEST).
+    // A bulk update skips @PreUpdate, so updatedAt is set here directly.
+    // clearAutomatically: forget cached users afterwards, so later reads see the new role.
+    // Returns the number of users that were moved.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE User u SET u.role = :to, u.updatedAt = :now WHERE u.role = :from")
+    int reassignRole(@Param("from") Role from, @Param("to") Role to, @Param("now") LocalDateTime now);
 }

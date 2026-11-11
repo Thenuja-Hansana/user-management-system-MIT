@@ -3,9 +3,11 @@ package com.mit_project.cms.service;
 import com.mit_project.cms.dto.UserRequest;
 import com.mit_project.cms.dto.UserResponse;
 import com.mit_project.cms.exception.DuplicateResourceException;
+import com.mit_project.cms.exception.InvalidOperationException;   // [ADDED]
 import com.mit_project.cms.exception.ResourceNotFoundException;
 import com.mit_project.cms.mapper.UserMapper;
 import com.mit_project.cms.model.Role;
+import com.mit_project.cms.model.Status;                          // [ADDED]
 import com.mit_project.cms.model.User;
 import com.mit_project.cms.repository.RoleRepository;
 import com.mit_project.cms.repository.UserRepository;
@@ -88,9 +90,10 @@ public class UserService {
         // Step 3: the role must exist
         Role role = getRoleOrThrow(request.getRoleId());
 
-        // Step 4: copy the new values into the user and save
+        // Step 4: copy the new values into the user and save.
+        // saveAndFlush writes now, so @PreUpdate sets updatedAt before we build the response.
         userMapper.updateEntity(user, request, role);
-        return userMapper.toResponse(userRepository.save(user));
+        return userMapper.toResponse(userRepository.saveAndFlush(user));   // [CHANGED] save -> saveAndFlush
     }
 
     // Delete a user. Throws 404 if it does not exist.
@@ -108,9 +111,17 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + id));
     }
 
-    // Helper: find a role or throw "not found"
+    // Helper: find a role or throw "not found".
+    // Inactive roles cannot be given to users (the error is shown under the role field).
     private Role getRoleOrThrow(Long roleId) {
-        return roleRepository.findById(roleId)
+        // [CHANGED] the role is stored in a variable (it was returned directly before)
+        Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Role not found with id " + roleId));
+        // [ADDED] inactive roles cannot be assigned
+        if (role.getStatus() == Status.INACTIVE) {
+            throw new InvalidOperationException("roleId",
+                    "Role " + role.getName() + " is inactive and cannot be assigned");
+        }
+        return role;
     }
 }
