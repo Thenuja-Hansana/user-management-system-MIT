@@ -1,368 +1,1012 @@
 {
   "info": {
     "name": "User Management System API",
-    "description": "REST endpoints for the User Management System. Start the app first (default http://localhost:8080). Role ids: 1 ADMIN, 2 MANAGER, 3 USER, 4 GUEST (see GET /api/roles). Deactivating a role moves its users to GUEST.",
+    "description": "REST endpoints for the User Management System. Start the app first (default http://localhost:8080).\n\nRun the folders IN ORDER (Collection Runner or one by one). Folder 1 saves the role ids into collection variables, and the other folders use them.\n\n1. Roles - read: lists roles and saves their ids.\n2. Users - read: list, search, get one, errors.\n3. Users - create, update, delete: uses its own test users and deletes them at the end. Checks status, createdAt and updatedAt.\n4. Roles - status rules: error cases and GUEST protection. Changes no data.\n5. Role deactivation flow: WARNING, this changes real data (see the folder description).\n\nEvery request has tests (see the Test Results tab).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080"
-    }
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "runId", "value": "" },
+    { "key": "adminRoleId", "value": "1" },
+    { "key": "managerRoleId", "value": "2" },
+    { "key": "userRoleId", "value": "3" },
+    { "key": "guestRoleId", "value": "4" },
+    { "key": "guestUpdatedAt", "value": "" },
+    { "key": "existingUserId", "value": "1" },
+    { "key": "testUserId", "value": "" },
+    { "key": "testUser2Id", "value": "" },
+    { "key": "testUserCreatedAt", "value": "" },
+    { "key": "testUserUpdatedAt", "value": "" },
+    { "key": "flowUserId", "value": "" }
   ],
   "item": [
     {
-      "name": "List all users (200)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/users",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "users"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Search users by name or email (200)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/users?search=an",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "users"
-          ],
-          "query": [
+      "name": "1. Roles - read",
+      "description": "Reads the roles. The first request saves every role id into collection variables (adminRoleId, managerRoleId, userRoleId, guestRoleId), so run it before the other folders.",
+      "item": [
+        {
+          "name": "List roles - saves role ids (200)",
+          "event": [
             {
-              "key": "search",
-              "value": "an"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const roles = pm.response.json();",
+                  "",
+                  "pm.test('Has ADMIN, MANAGER, USER and GUEST', () => {",
+                  "    pm.expect(roles.map(r => r.name)).to.include.members(['ADMIN', 'MANAGER', 'USER', 'GUEST']);",
+                  "});",
+                  "pm.test('Every role has status, updatedAt and userCount', () => {",
+                  "    roles.forEach(r => {",
+                  "        pm.expect(r.status).to.be.oneOf(['ACTIVE', 'INACTIVE']);",
+                  "        pm.expect(r.updatedAt).to.be.a('string');",
+                  "        pm.expect(r.userCount).to.be.a('number');",
+                  "    });",
+                  "});",
+                  "pm.test('GUEST is ACTIVE', () => {",
+                  "    pm.expect(roles.find(r => r.name === 'GUEST').status).to.eql('ACTIVE');",
+                  "});",
+                  "",
+                  "// Save ids for the other folders, e.g. MANAGER -> managerRoleId",
+                  "roles.forEach(r => pm.collectionVariables.set(r.name.toLowerCase() + 'RoleId', r.id));",
+                  "pm.collectionVariables.set('guestUpdatedAt', roles.find(r => r.name === 'GUEST').updatedAt);"
+                ]
+              }
             }
-          ]
-        }
-      }
-    },
-    {
-      "name": "Get user by id (200)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/users/1",
-          "host": [
-            "{{baseUrl}}"
           ],
-          "path": [
-            "api",
-            "users",
-            "1"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Get user - not found (404)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/users/9999",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "users",
-            "9999"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Get user - invalid id (400)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/users/abc",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "users",
-            "abc"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Create user (201)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/roles"
           }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/users",
-          "host": [
-            "{{baseUrl}}"
+        }
+      ]
+    },
+    {
+      "name": "2. Users - read",
+      "description": "Reads users. Changes no data.",
+      "item": [
+        {
+          "name": "List all users (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const users = pm.response.json();",
+                  "",
+                  "pm.test('Returns a list', () => pm.expect(users).to.be.an('array'));",
+                  "pm.test('Every user has status, createdAt and updatedAt', () => {",
+                  "    users.forEach(u => {",
+                  "        pm.expect(u.status).to.be.oneOf(['ACTIVE', 'INACTIVE']);",
+                  "        pm.expect(u.createdAt).to.be.a('string');",
+                  "        pm.expect(u.updatedAt).to.be.a('string');",
+                  "    });",
+                  "});",
+                  "// Compare to the millisecond: created_at keeps 7 decimals, updated_at keeps 6 (rounded)",
+                  "const ms = t => t.substring(0, 23);",
+                  "pm.test('updatedAt is never before createdAt', () => {",
+                  "    users.forEach(u => pm.expect(ms(u.updatedAt) >= ms(u.createdAt), 'user ' + u.id).to.be.true);",
+                  "});",
+                  "",
+                  "// Remember one real user for 'Get user by id'",
+                  "if (users.length > 0) pm.collectionVariables.set('existingUserId', users[0].id);"
+                ]
+              }
+            }
           ],
-          "path": [
-            "api",
-            "users"
-          ]
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users"
+          }
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"test.user@example.com\",\n  \"roleId\": 3,\n  \"status\": \"ACTIVE\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+        {
+          "name": "Search users by name or email (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Every result has \"an\" in the name or email', () => {",
+                  "    pm.response.json().forEach(u => {",
+                  "        const text = (u.name + ' ' + u.email).toLowerCase();",
+                  "        pm.expect(text).to.include('an');",
+                  "    });",
+                  "});"
+                ]
+              }
             }
-          }
-        }
-      }
-    },
-    {
-      "name": "Create user - validation errors (400)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/users",
-          "host": [
-            "{{baseUrl}}"
           ],
-          "path": [
-            "api",
-            "users"
-          ]
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users?search=an"
+          }
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"\",\n  \"email\": \"not-an-email\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+        {
+          "name": "Get user by id (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json();",
+                  "pm.test('Returns the requested user', () => {",
+                  "    pm.expect(u.id).to.eql(Number(pm.collectionVariables.get('existingUserId')));",
+                  "});",
+                  "pm.test('Has role, status, createdAt and updatedAt', () => {",
+                  "    pm.expect(u).to.include.keys('roleId', 'roleName', 'status', 'createdAt', 'updatedAt');",
+                  "});"
+                ]
+              }
             }
-          }
-        }
-      }
-    },
-    {
-      "name": "Create user - duplicate email (409)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/users",
-          "host": [
-            "{{baseUrl}}"
           ],
-          "path": [
-            "api",
-            "users"
-          ]
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{existingUserId}}"
+          }
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Another Alice\",\n  \"email\": \"alice.perera@example.com\",\n  \"roleId\": 3\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+        {
+          "name": "Get user - not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Message says not found', () => {",
+                  "    pm.expect(pm.response.json().message).to.include('not found');",
+                  "});"
+                ]
+              }
             }
-          }
-        }
-      }
-    },
-    {
-      "name": "Update user (200)",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/users/3",
-          "host": [
-            "{{baseUrl}}"
           ],
-          "path": [
-            "api",
-            "users",
-            "3"
-          ]
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/999999"
+          }
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"name\": \"Kasun Silva Updated\",\n  \"email\": \"kasun.silva@example.com\",\n  \"roleId\": 2\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+        {
+          "name": "Get user - invalid id (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Message names the bad value', () => {",
+                  "    pm.expect(pm.response.json().message).to.include('abc');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/abc"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Users - create, update, delete",
+      "description": "Creates two test users (emails pm.test.<time>@example.com), tests status / createdAt / updatedAt and the error cases, then deletes the test users. Run the whole folder in order.",
+      "item": [
+        {
+          "name": "Create user with status (201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A new number each run, so the test emails are always unique",
+                  "pm.collectionVariables.set('runId', Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Location header points to the new user', () => pm.response.to.have.header('Location'));",
+                  "const u = pm.response.json();",
+                  "",
+                  "pm.test('Status is ACTIVE and role is USER', () => {",
+                  "    pm.expect(u.status).to.eql('ACTIVE');",
+                  "    pm.expect(u.roleName).to.eql('USER');",
+                  "});",
+                  "pm.test('createdAt and updatedAt are the same for a new user', () => {",
+                  "    pm.expect(u.updatedAt).to.eql(u.createdAt);",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('testUserId', u.id);",
+                  "pm.collectionVariables.set('testUserCreatedAt', u.createdAt);",
+                  "pm.collectionVariables.set('testUserUpdatedAt', u.updatedAt);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
             }
           }
-        }
-      }
-    },
-    {
-      "name": "Delete user (204)",
-      "request": {
-        "method": "DELETE",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/users/6",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "users",
-            "6"
-          ]
-        }
-      }
-    },
-    {
-      "name": "List all roles (200)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{baseUrl}}/api/roles",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "roles"
-          ]
-        }
-      }
-    },
-    {
-      "name": "Deactivate role - users move to GUEST (200)",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/roles/2/status",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "roles",
-            "2",
-            "status"
-          ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"status\": \"INACTIVE\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+        {
+          "name": "Create user without status - defaults to ACTIVE (201)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const u = pm.response.json();",
+                  "pm.test('No status sent -> ACTIVE', () => pm.expect(u.status).to.eql('ACTIVE'));",
+                  "pm.test('GUEST can be assigned', () => pm.expect(u.roleName).to.eql('GUEST'));",
+                  "pm.collectionVariables.set('testUser2Id', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Two\",\n  \"email\": \"pm.test2.{{runId}}@example.com\",\n  \"roleId\": {{guestRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
             }
           }
+        },
+        {
+          "name": "Create user - duplicate email (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Message says it already exists', () => {",
+                  "    pm.expect(pm.response.json().message).to.include('already exists');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Duplicate\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Create user - validation errors (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Errors for name, email and roleId', () => {",
+                  "    pm.expect(pm.response.json().fieldErrors).to.include.keys('name', 'email', 'roleId');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"\",\n  \"email\": \"not-an-email\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Create user - role does not exist (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Message says role not found', () => {",
+                  "    pm.expect(pm.response.json().message).to.include('Role not found');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"No Role\",\n  \"email\": \"pm.norole.{{runId}}@example.com\",\n  \"roleId\": 999999\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Create user - invalid status value (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400 (only ACTIVE or INACTIVE allowed)', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Bad Status\",\n  \"email\": \"pm.badstatus.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"status\": \"FOO\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Search finds the new user (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('The test user is in the results', () => {",
+                  "    const ids = pm.response.json().map(u => u.id);",
+                  "    pm.expect(ids).to.include(Number(pm.collectionVariables.get('testUserId')));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users?search=pm.test.{{runId}}"
+          }
+        },
+        {
+          "name": "Update user - set INACTIVE (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json();",
+                  "",
+                  "pm.test('Name, role and status were changed', () => {",
+                  "    pm.expect(u.name).to.eql('Postman Test Updated');",
+                  "    pm.expect(u.roleName).to.eql('MANAGER');",
+                  "    pm.expect(u.status).to.eql('INACTIVE');",
+                  "});",
+                  "pm.test('createdAt did NOT change', () => {",
+                  "    pm.expect(u.createdAt).to.eql(pm.collectionVariables.get('testUserCreatedAt'));",
+                  "});",
+                  "pm.test('updatedAt moved forward', () => {",
+                  "    pm.expect(u.updatedAt > pm.collectionVariables.get('testUserUpdatedAt')).to.be.true;",
+                  "});",
+                  "",
+                  "pm.collectionVariables.set('testUserUpdatedAt', u.updatedAt);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/{{testUserId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Updated\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{managerRoleId}},\n  \"status\": \"INACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Update user - without status keeps current status (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json();",
+                  "pm.test('No status sent -> still INACTIVE', () => pm.expect(u.status).to.eql('INACTIVE'));",
+                  "pm.test('Role changed back to USER', () => pm.expect(u.roleName).to.eql('USER'));",
+                  "pm.test('updatedAt moved forward again', () => {",
+                  "    pm.expect(u.updatedAt > pm.collectionVariables.get('testUserUpdatedAt')).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/{{testUserId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Updated\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Update user - email used by another user (409)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/{{testUser2Id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Two\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{guestRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Update user - not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/999999",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Nobody\",\n  \"email\": \"pm.nobody.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Get updated user (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json();",
+                  "pm.test('Changes were saved in the database', () => {",
+                  "    pm.expect(u.name).to.eql('Postman Test Updated');",
+                  "    pm.expect(u.status).to.eql('INACTIVE');",
+                  "    pm.expect(u.createdAt).to.eql(pm.collectionVariables.get('testUserCreatedAt'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{testUserId}}"
+          }
+        },
+        {
+          "name": "Delete test user (204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{testUserId}}"
+          }
+        },
+        {
+          "name": "Delete second test user (204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{testUser2Id}}"
+          }
+        },
+        {
+          "name": "Get deleted user (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404 (user is gone)', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{testUserId}}"
+          }
+        },
+        {
+          "name": "Delete user - not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{testUserId}}"
+          }
         }
-      }
+      ]
     },
     {
-      "name": "Activate role (200)",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/roles/2/status",
-          "host": [
-            "{{baseUrl}}"
+      "name": "4. Roles - status rules",
+      "description": "Error cases and GUEST protection. Changes no data.",
+      "item": [
+        {
+          "name": "Deactivate GUEST - not allowed (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Message says GUEST cannot be deactivated', () => {",
+                  "    pm.expect(pm.response.json().message).to.include('cannot be deactivated');",
+                  "});"
+                ]
+              }
+            }
           ],
-          "path": [
-            "api",
-            "roles",
-            "2",
-            "status"
-          ]
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/{{guestRoleId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"INACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"status\": \"ACTIVE\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+        {
+          "name": "Activate GUEST - already active, nothing changes (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('GUEST is still ACTIVE', () => pm.expect(r.status).to.eql('ACTIVE'));",
+                  "pm.test('updatedAt did not change (same status = no update)', () => {",
+                  "    pm.expect(r.updatedAt).to.eql(pm.collectionVariables.get('guestUpdatedAt'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/{{guestRoleId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Change status - missing status (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error: Status is required', () => {",
+                  "    pm.expect(pm.response.json().fieldErrors.status).to.eql('Status is required');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/{{userRoleId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Change status - invalid value (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400 (only ACTIVE or INACTIVE allowed)', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/{{userRoleId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"FOO\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Change status - role not found (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Message says role not found', () => {",
+                  "    pm.expect(pm.response.json().message).to.include('Role not found');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/999999/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Change status - invalid id (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/abc/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
             }
           }
         }
-      }
+      ]
     },
     {
-      "name": "Deactivate GUEST - not allowed (400)",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": {
-          "raw": "{{baseUrl}}/api/roles/4/status",
-          "host": [
-            "{{baseUrl}}"
+      "name": "5. Role deactivation flow - CHANGES REAL DATA",
+      "description": "WARNING: this folder deactivates the MANAGER role. That moves ALL real MANAGER users to GUEST, and activating MANAGER again does NOT move them back. Only run it on test data, or move those users back by hand afterwards.\n\nSteps: create a test user with MANAGER -> deactivate MANAGER -> the user is now GUEST -> MANAGER cannot be assigned -> activate MANAGER -> the user stays GUEST -> delete the test user.",
+      "item": [
+        {
+          "name": "Create flow user with MANAGER role (201)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('runId', Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "const u = pm.response.json();",
+                  "pm.test('Role is MANAGER', () => pm.expect(u.roleName).to.eql('MANAGER'));",
+                  "pm.collectionVariables.set('flowUserId', u.id);"
+                ]
+              }
+            }
           ],
-          "path": [
-            "api",
-            "roles",
-            "4",
-            "status"
-          ]
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"status\": \"INACTIVE\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Flow User\",\n  \"email\": \"pm.flow.{{runId}}@example.com\",\n  \"roleId\": {{managerRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
             }
           }
+        },
+        {
+          "name": "Deactivate MANAGER - users move to GUEST (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('MANAGER is now INACTIVE', () => pm.expect(r.status).to.eql('INACTIVE'));",
+                  "pm.test('MANAGER has no users left', () => pm.expect(r.userCount).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/{{managerRoleId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"INACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Flow user is now GUEST (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json();",
+                  "pm.test('User was moved to GUEST', () => {",
+                  "    pm.expect(u.roleName).to.eql('GUEST');",
+                  "    pm.expect(u.roleId).to.eql(Number(pm.collectionVariables.get('guestRoleId')));",
+                  "});",
+                  "pm.test('Moving the user changed updatedAt', () => pm.expect(u.updatedAt > u.createdAt).to.be.true);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{flowUserId}}"
+          }
+        },
+        {
+          "name": "List roles - MANAGER inactive, GUEST has users (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const roles = pm.response.json();",
+                  "const manager = roles.find(r => r.name === 'MANAGER');",
+                  "const guest = roles.find(r => r.name === 'GUEST');",
+                  "pm.test('MANAGER is INACTIVE with 0 users', () => {",
+                  "    pm.expect(manager.status).to.eql('INACTIVE');",
+                  "    pm.expect(manager.userCount).to.eql(0);",
+                  "});",
+                  "pm.test('GUEST has at least 1 user', () => pm.expect(guest.userCount).to.be.at.least(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/roles"
+          }
+        },
+        {
+          "name": "Create user with inactive role - not allowed (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error is shown on the roleId field', () => {",
+                  "    pm.expect(pm.response.json().fieldErrors.roleId).to.include('inactive');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Should Fail\",\n  \"email\": \"pm.fail.{{runId}}@example.com\",\n  \"roleId\": {{managerRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Activate MANAGER (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('MANAGER is ACTIVE again', () => pm.expect(pm.response.json().status).to.eql('ACTIVE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/roles/{{managerRoleId}}/status",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Flow user stays GUEST after reactivation (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('User is still GUEST (not moved back)', () => {",
+                  "    pm.expect(pm.response.json().roleName).to.eql('GUEST');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{flowUserId}}"
+          }
+        },
+        {
+          "name": "Delete flow user (204)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/users/{{flowUserId}}"
+          }
         }
-      }
+      ]
     }
   ]
 }
