@@ -324,6 +324,11 @@
         }
         .empty { text-align: center; color: #9ca3af; padding: 36px 20px; }
 
+        /* [ADDED - session fix] the box shown while we check who is logged in (or if that check fails) */
+        .app-status { max-width: 1280px; margin: 32px auto; padding: 0 20px; color: var(--muted); }
+        .app-status.error { color: #b42318; font-weight: 500; }
+        .app-status button { margin-left: 10px; }
+
         /* ---------- Animations ---------- */
         @keyframes headerIn { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
         @keyframes cardIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
@@ -357,7 +362,12 @@
 <!-- [CHANGED] message box moved here (it was inside the users card) -->
 <div id="message" class="message" role="status" aria-live="polite"></div>
 
-<main>
+<!-- [ADDED - session fix] shown until we know who is logged in; shows an error if that check fails -->
+<div class="app-status" id="app-status" role="status">Checking your login...</div>
+
+<!-- [CHANGED - session fix] id + hidden: the CMS stays hidden until the login check succeeds,
+     so nobody can fill in the form while not logged in -->
+<main id="app" hidden>
     <!-- Left side: form to add or edit a user -->
     <section class="card" id="form-card"> <!-- [CHANGED] id added -->
         <h2 id="form-title">Add User</h2>
@@ -923,6 +933,12 @@
     // Read the ApiError JSON from the backend and show it.
     // Validation errors (400) are shown under each field.
     async function handleError(response) {
+        // [ADDED - tabs fix] "not allowed" can mean someone else logged in, in another tab of this browser.
+        // If so, say who is logged in now and reload, instead of a confusing "no permission" message.
+        if (response.status === 403 && await loggedInUserChanged()) {
+            return;
+        }
+
         let error = null;
         try { error = await response.json(); } catch (e) { /* body was not JSON */ }
 
@@ -1037,11 +1053,46 @@
         }
     }
 
+    // [ADDED - tabs fix] Is a different user (or the same user with a different role) logged in now?
+    // If yes: show who it is, then reload the page so it shows the right screens. Returns true if it changed.
+    async function loggedInUserChanged() {
+        const response = await apiFetch("/api/me");   // nobody logged in -> apiFetch goes to the login page
+        if (!response.ok) return false;
+        const me = await response.json();
+        if (me.id === currentUser.id && me.roleName === currentUser.roleName) return false;
+
+        showMessage("This browser is now logged in as " + me.name + " (" + me.roleName + "), "
+            + "probably from another tab. Reloading...", "error");
+        setTimeout(() => location.reload(), 2500);
+        return true;
+    }
+
+    // [ADDED - session fix] the login check failed: show why, with a Reload button, and keep the CMS hidden
+    function showStartError(text) {
+        const status = document.getElementById("app-status");
+        status.textContent = text;
+        status.classList.add("error");
+        const reloadBtn = document.createElement("button");
+        reloadBtn.type = "button";
+        reloadBtn.className = "btn-secondary";
+        reloadBtn.textContent = "Reload page";
+        reloadBtn.onclick = () => location.reload();
+        status.appendChild(reloadBtn);
+    }
+
     // Runs when the page opens: find out who is logged in, then load the data
     async function start() {
-        const response = await apiFetch("/api/me");   // not logged in -> apiFetch goes to the login page
+        // [CHANGED - session fix] errors now keep the CMS hidden (before, the form stayed usable)
+        let response;
+        try {
+            response = await apiFetch("/api/me");   // not logged in -> apiFetch goes to the login page
+        } catch (err) {
+            showStartError("Could not reach the server. Check that the application is running.");
+            return;
+        }
         if (!response.ok) {
-            showMessage("Could not load your account (status " + response.status + ")", "error");
+            showStartError("Could not check your login (status " + response.status + "). "
+                + "If the server was just restarted, reload the page.");
             return;
         }
         currentUser = await response.json();
@@ -1052,6 +1103,9 @@
             return;
         }
         applyPermissions();
+        // [ADDED - session fix] login confirmed: now show the CMS
+        document.getElementById("app-status").hidden = true;
+        document.getElementById("app").hidden = false;
         loadRoles();
         loadUsers();
     }

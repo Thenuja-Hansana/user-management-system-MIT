@@ -130,6 +130,7 @@
         .message { padding: 11px 13px; border-radius: 10px; font-size: 0.88rem; font-weight: 500; margin-bottom: 4px; animation: slideIn 0.35s var(--ease); }
         .message.error { background: #fdeceb; color: #b42318; border: 1px solid #f6c7c4; }
         .message.info { background: #e8f8ee; color: var(--success); border: 1px solid #bfe9cd; }
+        .message.warn { background: #fff7e6; color: #92400e; border: 1px solid #fcd9a0; }   /* [ADDED - session fix] */
 
         .foot { margin-top: 18px; text-align: center; color: var(--muted); font-size: 0.8rem; }
 
@@ -187,6 +188,13 @@
         infoBox.hidden = false;
     }
 
+    // [ADDED - session fix] we were sent here because the session ended (timeout or server restart)
+    if (new URLSearchParams(location.search).has("expired")) {
+        infoBox.textContent = "Your session has ended (for example, the server was restarted). Please log in again.";
+        infoBox.className = "message warn";
+        infoBox.hidden = false;
+    }
+
     // Already logged in? Then skip this page.
     fetch("/api/me").then(async response => {
         if (!response.ok) return;
@@ -226,6 +234,7 @@
             const data = await response.json().catch(() => ({}));
 
             if (response.ok) {
+                notifyAuthChanged();             // [ADDED - tabs fix] other open tabs reload as the new user
                 location.href = data.redirect;   // /index.html or /account.html, chosen by the server
                 return;
             }
