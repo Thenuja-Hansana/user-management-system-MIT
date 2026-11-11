@@ -19,6 +19,7 @@ CREATE TABLE dbo.users (
     id         BIGINT IDENTITY(1,1) NOT NULL,
     name       VARCHAR(100) NOT NULL,
     email      VARCHAR(150) NOT NULL,
+    password_hash VARCHAR(100) NULL,                                                            -- [ADDED - password] BCrypt hash, NULL = no password yet
     created_at DATETIME2 NOT NULL CONSTRAINT df_users_created_at DEFAULT SYSDATETIME(),
     updated_at DATETIME2(6) NOT NULL CONSTRAINT df_users_updated_at DEFAULT SYSDATETIME(),      -- [ADDED]
     status     VARCHAR(10) NOT NULL CONSTRAINT df_users_status DEFAULT 'ACTIVE',                -- [ADDED]

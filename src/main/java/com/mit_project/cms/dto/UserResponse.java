@@ -19,12 +19,15 @@ public class UserResponse {
     private final Status status;      // ACTIVE or INACTIVE   [ADDED]
     private final LocalDateTime createdAt;
     private final LocalDateTime updatedAt;   // [ADDED]
+    // [ADDED - password] true if the user has a password. The password itself is NEVER sent back.
+    private final boolean hasPassword;
 
     // All values are set here, when the object is created
     // [CHANGED] constructor now also takes status and updatedAt
     public UserResponse(Long id, String name, String email,
                         Long roleId, String roleName, Status status,
-                        LocalDateTime createdAt, LocalDateTime updatedAt) {
+                        LocalDateTime createdAt, LocalDateTime updatedAt,
+                        boolean hasPassword) {   // [CHANGED - password] new parameter
         this.id = id;
         this.name = name;
         this.email = email;
@@ -33,6 +36,7 @@ public class UserResponse {
         this.status = status;           // [ADDED]
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;     // [ADDED]
+        this.hasPassword = hasPassword; // [ADDED - password]
     }
 
     // Only getters, no setters (read-only). Spring uses them to build the JSON.
@@ -68,5 +72,10 @@ public class UserResponse {
     // [ADDED]
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    // [ADDED - password] shown in JSON as "hasPassword": true / false
+    public boolean getHasPassword() {
+        return hasPassword;
     }
 }

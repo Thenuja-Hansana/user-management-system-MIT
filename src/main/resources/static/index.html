@@ -87,7 +87,9 @@
         #users-card { animation-delay: 0.1s; }
         #roles-card { animation-delay: 0.2s; }
         #form-card { position: sticky; top: 24px; }
-        @media (max-width: 1200px) { #form-card { position: static; } }
+        /* [ADDED - password] the form is taller now: let it scroll inside itself on short screens */
+        #form-card { max-height: calc(100vh - 48px); overflow-y: auto; }
+        @media (max-width: 1200px) { #form-card { position: static; max-height: none; } }   /* [CHANGED - password] max-height: none */
 
         h2 { margin-top: 0; font-size: 1.1rem; font-weight: 650; letter-spacing: -0.01em; }
         .card-hint { margin: -8px 0 16px; color: var(--muted); font-size: 0.85rem; }   /* [ADDED] */
@@ -119,6 +121,49 @@
         input.invalid:focus, select.invalid:focus { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.15); }
         .field-error { color: var(--danger); font-size: 0.8rem; min-height: 1.2em; margin-top: 4px; }
         .field-error:not(:empty) { animation: fadeDown 0.25s var(--ease); }
+
+        /* [ADDED - password] start: password boxes, show/hide button, live rule checklist */
+        .label-hint { font-weight: 400; color: var(--muted); }
+        .password-wrap { position: relative; }
+        .password-wrap input { padding-right: 44px; }               /* room for the eye button */
+        .password-wrap .toggle-password { position: absolute; right: 4px; top: 50%; }
+        .password-wrap .toggle-password,
+        .password-wrap .toggle-password:hover,
+        .password-wrap .toggle-password:active { transform: translateY(-50%); }   /* keep it centred (no hover jump) */
+        .toggle-password {
+            padding: 6px;
+            background: transparent;
+            color: var(--muted);
+            border-radius: 6px;
+            line-height: 0;
+        }
+        .toggle-password:hover { background: #eceef4; color: var(--text); }
+        .toggle-password svg { width: 18px; height: 18px; }
+        /* Open eye while the password is hidden, crossed-out eye while it is visible */
+        .toggle-password .eye-closed { display: none; }
+        .toggle-password[aria-pressed="true"] .eye-open { display: none; }
+        .toggle-password[aria-pressed="true"] .eye-closed { display: inline; }
+
+        .password-rules {
+            list-style: none;
+            margin: 8px 0 0;
+            padding: 0;
+            display: grid;
+            gap: 2px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        .password-rules li { display: flex; align-items: center; gap: 6px; transition: color 0.2s; }
+        .password-rules li::before { content: "\25CB"; width: 1em; text-align: center; font-weight: 700; }  /* ○ not checked yet */
+        .password-rules li.ok { color: var(--success); }
+        .password-rules li.ok::before { content: "\2713"; }                                                /* ✓ rule met */
+        .password-rules li.bad { color: var(--danger); }
+        .password-rules li.bad::before { content: "\2715"; }                                               /* ✕ rule not met yet */
+
+        .match-hint { font-size: 0.8rem; min-height: 1.2em; margin-top: 4px; }
+        .match-hint.ok { color: var(--success); }
+        .match-hint.bad { color: var(--danger); }
+        /* [ADDED - password] end */
 
         /* ---------- Buttons ---------- */
         button {
@@ -304,6 +349,39 @@
             <input type="email" id="email" maxlength="150">
             <div class="field-error" id="email-error"></div>
 
+            <!-- [ADDED - password] start: Password, live rule checklist, Confirm Password -->
+            <label for="password">Password <span class="label-hint" id="password-hint"></span></label>
+            <div class="password-wrap">
+                <input type="password" id="password" maxlength="72" autocomplete="new-password"
+                       aria-describedby="password-rules">
+                <button type="button" class="toggle-password" data-target="password"
+                        aria-label="Show password" aria-pressed="false">
+                    <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+            </div>
+            <!-- Each rule turns green (✓) or red (✕) while you type -->
+            <ul class="password-rules" id="password-rules">
+                <li data-rule="length">At least 6 characters</li>
+                <li data-rule="upper">One uppercase letter (A-Z)</li>
+                <li data-rule="lower">One lowercase letter (a-z)</li>
+                <li data-rule="number">One number (0-9)</li>
+                <li data-rule="special">One special character (e.g. ! @ # $ %)</li>
+            </ul>
+            <div class="field-error" id="password-error"></div>
+
+            <label for="confirmPassword">Confirm Password</label>
+            <div class="password-wrap">
+                <input type="password" id="confirmPassword" maxlength="72" autocomplete="new-password">
+                <button type="button" class="toggle-password" data-target="confirmPassword"
+                        aria-label="Show password" aria-pressed="false">
+                    <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                </button>
+            </div>
+            <div class="match-hint" id="match-hint" aria-live="polite"></div>
+            <!-- [ADDED - password] end -->
+
             <label for="roleId">Role</label>
             <!-- [CHANGED] the hard-coded ADMIN/MANAGER/USER options were removed. -->
             <!-- Options are loaded from /api/roles. Inactive roles are shown but cannot be picked. -->
@@ -403,6 +481,11 @@
     const tableBody = document.getElementById("user-table");
     const roleTableBody = document.getElementById("role-table"); // [ADDED]
     const messageBox = document.getElementById("message");
+    // [ADDED - password] the password boxes and their hints
+    const passwordInput = document.getElementById("password");
+    const confirmInput = document.getElementById("confirmPassword");
+    const passwordHint = document.getElementById("password-hint");
+    const matchHint = document.getElementById("match-hint");
 
     // [ADDED] start: helper functions
     // Small helpers for building table cells
@@ -499,11 +582,21 @@
         clearFieldErrors();
 
         const id = idInput.value;
+
+        // [ADDED - password] check the password boxes before sending anything
+        if (!validatePasswordFields(Boolean(id))) {
+            showMessage("Please fix the errors in the form.", "error");
+            return;
+        }
+
         const body = {
             name: nameInput.value.trim(),
             email: emailInput.value.trim(),
             roleId: roleInput.value ? Number(roleInput.value) : null,
-            status: statusInput.value   // [ADDED]
+            status: statusInput.value,   // [ADDED]
+            // [ADDED - password] sent only if typed. When editing, null means "keep the current password".
+            // The Confirm box is NOT sent: it only exists to catch typing mistakes on this page.
+            password: passwordInput.value === "" ? null : passwordInput.value
         };
 
         try {
@@ -659,6 +752,125 @@
     }
     // [ADDED] end: Roles section
 
+    // ---------- Password ----------
+    // [ADDED - password] start: everything in this Password section is new
+
+    // The same rules as the server (UserRequest.PASSWORD_RULES + @Size).
+    // Each rule is a small function that returns true when the password meets it.
+    const PASSWORD_RULES = {
+        length:  p => p.length >= 6,
+        upper:   p => /[A-Z]/.test(p),
+        lower:   p => /[a-z]/.test(p),
+        number:  p => /[0-9]/.test(p),
+        special: p => /[^A-Za-z0-9]/.test(p)
+    };
+
+    // Checks every rule and colours the checklist: green ✓ = met, red ✕ = not met yet.
+    // While the box is empty, the rules stay grey. Returns true only if ALL rules are met.
+    function checkPasswordRules() {
+        const password = passwordInput.value;
+        let allMet = true;
+        document.querySelectorAll("#password-rules li").forEach(li => {
+            const met = PASSWORD_RULES[li.dataset.rule](password);
+            if (!met) allMet = false;
+            li.classList.toggle("ok", met);
+            li.classList.toggle("bad", !met && password !== "");
+        });
+        return allMet;
+    }
+
+    // Compares the two boxes and shows "Passwords match" / "Passwords do not match".
+    // Returns true if they are the same.
+    function checkPasswordsMatch() {
+        const same = passwordInput.value === confirmInput.value;
+        if (confirmInput.value === "") {
+            matchHint.textContent = "";
+            matchHint.className = "match-hint";
+        } else {
+            matchHint.textContent = same ? "Passwords match" : "Passwords do not match";
+            matchHint.className = "match-hint " + (same ? "ok" : "bad");
+        }
+        return same;
+    }
+
+    // Runs when the form is sent. Returns true if the password boxes are OK.
+    // Creating a user: a password is required. Editing: empty means "keep the current password".
+    function validatePasswordFields(isEdit) {
+        const password = passwordInput.value;
+        let ok = true;
+
+        if (password === "") {
+            if (!isEdit) {
+                showFieldError("password", "Password is required");
+                ok = false;
+            }
+        } else if (!checkPasswordRules()) {
+            showFieldError("password", "Password does not meet all the rules above");
+            ok = false;
+        }
+
+        // If anything was typed, the Confirm box must be filled in and match
+        if (password !== "" || confirmInput.value !== "") {
+            if (confirmInput.value === "") {
+                matchHint.textContent = "Please type the password again";
+                matchHint.className = "match-hint bad";
+                confirmInput.classList.add("invalid");
+                ok = false;
+            } else if (!checkPasswordsMatch()) {
+                confirmInput.classList.add("invalid");
+                ok = false;
+            }
+        }
+        return ok;
+    }
+
+    // Shows a red message under one field and outlines the field in red
+    function showFieldError(field, text) {
+        document.getElementById(field + "-error").textContent = text;
+        document.getElementById(field).classList.add("invalid");
+    }
+
+    // Empties both password boxes and puts everything back to the start:
+    // dots instead of text, grey checklist, no match message, and the given hint next to the label.
+    function resetPasswordFields(hintText) {
+        passwordInput.value = "";
+        confirmInput.value = "";
+        document.querySelectorAll(".toggle-password").forEach(button => {
+            document.getElementById(button.dataset.target).type = "password";
+            button.setAttribute("aria-pressed", "false");
+            button.setAttribute("aria-label", "Show password");
+        });
+        document.querySelectorAll("#password-rules li").forEach(li => li.classList.remove("ok", "bad"));
+        matchHint.textContent = "";
+        matchHint.className = "match-hint";
+        passwordHint.textContent = hintText;
+    }
+
+    // Live checks: the "input" event fires on every key press in the box
+    passwordInput.addEventListener("input", () => {
+        checkPasswordRules();
+        if (confirmInput.value !== "") checkPasswordsMatch();
+        passwordInput.classList.remove("invalid");
+        document.getElementById("password-error").textContent = "";
+    });
+
+    confirmInput.addEventListener("input", () => {
+        checkPasswordsMatch();
+        confirmInput.classList.remove("invalid");
+    });
+
+    // Show / hide buttons: switch the box between type="password" (dots) and type="text" (readable)
+    document.querySelectorAll(".toggle-password").forEach(button => {
+        button.addEventListener("click", () => {
+            const input = document.getElementById(button.dataset.target);
+            const show = input.type === "password";
+            input.type = show ? "text" : "password";
+            button.setAttribute("aria-pressed", String(show));
+            button.setAttribute("aria-label", show ? "Hide password" : "Show password");
+        });
+    });
+    // [ADDED - password] end: Password section
+
     // ---------- Shared ----------
 
     // Read the ApiError JSON from the backend and show it.
@@ -688,6 +900,10 @@
         emailInput.value = user.email;
         roleInput.value = user.roleId;
         statusInput.value = user.status;   // [ADDED]
+        // [ADDED - password] the password boxes start empty; leaving them empty keeps the current password
+        resetPasswordFields(user.hasPassword
+            ? "(leave blank to keep the current one)"
+            : "(no password set yet, optional)");
         formTitle.textContent = "Edit User #" + user.id;
         submitBtn.textContent = "Save Changes";
         cancelBtn.hidden = false;
@@ -701,6 +917,7 @@
         submitBtn.textContent = "Add User";
         cancelBtn.hidden = true;
         clearFieldErrors();
+        resetPasswordFields("");   // [ADDED - password]
     }
 
     function clearFieldErrors() {

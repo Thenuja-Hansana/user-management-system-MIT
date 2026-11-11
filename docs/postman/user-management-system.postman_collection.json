@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "User Management System API",
-    "description": "REST endpoints for the User Management System. Start the app first (default http://localhost:8080).\n\nRun the folders IN ORDER (Collection Runner or one by one). Folder 1 saves the role ids into collection variables, and the other folders use them.\n\n1. Roles - read: lists roles and saves their ids.\n2. Users - read: list, search, get one, errors.\n3. Users - create, update, delete: uses its own test users and deletes them at the end. Checks status, createdAt and updatedAt.\n4. Roles - status rules: error cases and GUEST protection. Changes no data.\n5. Role deactivation flow: WARNING, this changes real data (see the folder description).\n\nEvery request has tests (see the Test Results tab).",
+    "description": "REST endpoints for the User Management System. Start the app first (default http://localhost:8080).\n\nRun the folders IN ORDER (Collection Runner or one by one). Folder 1 saves the role ids into collection variables, and the other folders use them.\n\n1. Roles - read: lists roles and saves their ids.\n2. Users - read: list, search, get one, errors.\n3. Users - create, update, delete: uses its own test users and deletes them at the end. Checks status, createdAt and updatedAt.\n4. Roles - status rules: error cases and GUEST protection. Changes no data.\n5. Role deactivation flow: WARNING, this changes real data (see the folder description).\n\nEvery request has tests (see the Test Results tab).\n\nPasswords: creating a user needs a password (6+ characters with an uppercase letter, a lowercase letter, a number and a special character). When editing, leave it out to keep the current one. The API never sends a password back, only \"hasPassword\": true/false.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -91,6 +91,12 @@
                   "const ms = t => t.substring(0, 23);",
                   "pm.test('updatedAt is never before createdAt', () => {",
                   "    users.forEach(u => pm.expect(ms(u.updatedAt) >= ms(u.createdAt), 'user ' + u.id).to.be.true);",
+                  "});",
+                  "pm.test('No user exposes a password, only hasPassword', () => {",
+                  "    users.forEach(u => {",
+                  "        pm.expect(u).to.not.have.any.keys('password', 'passwordHash');",
+                  "        pm.expect(u.hasPassword).to.be.a('boolean');",
+                  "    });",
                   "});",
                   "",
                   "// Remember one real user for 'Get user by id'",
@@ -235,6 +241,10 @@
                   "pm.test('createdAt and updatedAt are the same for a new user', () => {",
                   "    pm.expect(u.updatedAt).to.eql(u.createdAt);",
                   "});",
+                  "pm.test('Password is saved but never sent back', () => {",
+                  "    pm.expect(u.hasPassword).to.eql(true);",
+                  "    pm.expect(u).to.not.have.any.keys('password', 'passwordHash');",
+                  "});",
                   "",
                   "pm.collectionVariables.set('testUserId', u.id);",
                   "pm.collectionVariables.set('testUserCreatedAt', u.createdAt);",
@@ -249,7 +259,7 @@
             "url": "{{baseUrl}}/api/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Postman Test\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"status\": \"ACTIVE\"\n}",
+              "raw": "{\n  \"name\": \"Postman Test\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"status\": \"ACTIVE\",\n  \"password\": \"Test@123\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }
@@ -277,7 +287,7 @@
             "url": "{{baseUrl}}/api/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Postman Test Two\",\n  \"email\": \"pm.test2.{{runId}}@example.com\",\n  \"roleId\": {{guestRoleId}}\n}",
+              "raw": "{\n  \"name\": \"Postman Test Two\",\n  \"email\": \"pm.test2.{{runId}}@example.com\",\n  \"roleId\": {{guestRoleId}},\n  \"password\": \"Test@123\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }
@@ -304,7 +314,7 @@
             "url": "{{baseUrl}}/api/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Duplicate\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}}\n}",
+              "raw": "{\n  \"name\": \"Duplicate\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"password\": \"Test@123\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }
@@ -318,8 +328,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 400', () => pm.response.to.have.status(400));",
-                  "pm.test('Errors for name, email and roleId', () => {",
-                  "    pm.expect(pm.response.json().fieldErrors).to.include.keys('name', 'email', 'roleId');",
+                  "pm.test('Errors for name, email, roleId and password', () => {",
+                  "    pm.expect(pm.response.json().fieldErrors).to.include.keys('name', 'email', 'roleId', 'password');",
                   "});"
                 ]
               }
@@ -331,7 +341,62 @@
             "url": "{{baseUrl}}/api/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"\",\n  \"email\": \"not-an-email\"\n}",
+              "raw": "{\n  \"name\": \"\",\n  \"email\": \"not-an-email\",\n  \"password\": \"abc\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Create user - missing password (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error: Password is required', () => {",
+                  "    pm.expect(pm.response.json().fieldErrors.password).to.eql('Password is required');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"No Password\",\n  \"email\": \"pm.nopass.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Create user - weak password (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 'abcdef' is long enough but has no uppercase letter, number or special character",
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on password', () => {",
+                  "    pm.expect(pm.response.json().fieldErrors.password).to.include('must contain');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Weak Password\",\n  \"email\": \"pm.weak.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"password\": \"abcdef\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }
@@ -358,7 +423,7 @@
             "url": "{{baseUrl}}/api/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"No Role\",\n  \"email\": \"pm.norole.{{runId}}@example.com\",\n  \"roleId\": 999999\n}",
+              "raw": "{\n  \"name\": \"No Role\",\n  \"email\": \"pm.norole.{{runId}}@example.com\",\n  \"roleId\": 999999,\n  \"password\": \"Test@123\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }
@@ -382,7 +447,7 @@
             "url": "{{baseUrl}}/api/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Bad Status\",\n  \"email\": \"pm.badstatus.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"status\": \"FOO\"\n}",
+              "raw": "{\n  \"name\": \"Bad Status\",\n  \"email\": \"pm.badstatus.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"status\": \"FOO\",\n  \"password\": \"Test@123\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }
@@ -429,6 +494,9 @@
                   "pm.test('createdAt did NOT change', () => {",
                   "    pm.expect(u.createdAt).to.eql(pm.collectionVariables.get('testUserCreatedAt'));",
                   "});",
+                  "pm.test('No password sent -> the old password is kept', () => {",
+                  "    pm.expect(u.hasPassword).to.eql(true);",
+                  "});",
                   "pm.test('updatedAt moved forward', () => {",
                   "    pm.expect(u.updatedAt > pm.collectionVariables.get('testUserUpdatedAt')).to.be.true;",
                   "});",
@@ -463,7 +531,8 @@
                   "pm.test('Role changed back to USER', () => pm.expect(u.roleName).to.eql('USER'));",
                   "pm.test('updatedAt moved forward again', () => {",
                   "    pm.expect(u.updatedAt > pm.collectionVariables.get('testUserUpdatedAt')).to.be.true;",
-                  "});"
+                  "});",
+                  "pm.collectionVariables.set('testUserUpdatedAt', u.updatedAt);"
                 ]
               }
             }
@@ -475,6 +544,66 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Postman Test Updated\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}}\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Update user - change password (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "const u = pm.response.json();",
+                  "pm.test('Still has a password, and it is not sent back', () => {",
+                  "    pm.expect(u.hasPassword).to.eql(true);",
+                  "    pm.expect(u).to.not.have.any.keys('password', 'passwordHash');",
+                  "});",
+                  "pm.test('Changing only the password moves updatedAt forward', () => {",
+                  "    pm.expect(u.updatedAt > pm.collectionVariables.get('testUserUpdatedAt')).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/{{testUserId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Updated\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"password\": \"NewPass#456\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          }
+        },
+        {
+          "name": "Update user - weak password (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 'Ab1!' meets every rule except the length (6+)",
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on password', () => {",
+                  "    pm.expect(pm.response.json().fieldErrors).to.have.property('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/users/{{testUserId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Updated\",\n  \"email\": \"pm.test.{{runId}}@example.com\",\n  \"roleId\": {{userRoleId}},\n  \"password\": \"Ab1!\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }
@@ -829,7 +958,7 @@
             "url": "{{baseUrl}}/api/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Postman Flow User\",\n  \"email\": \"pm.flow.{{runId}}@example.com\",\n  \"roleId\": {{managerRoleId}}\n}",
+              "raw": "{\n  \"name\": \"Postman Flow User\",\n  \"email\": \"pm.flow.{{runId}}@example.com\",\n  \"roleId\": {{managerRoleId}},\n  \"password\": \"Test@123\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }
@@ -935,7 +1064,7 @@
             "url": "{{baseUrl}}/api/users",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Should Fail\",\n  \"email\": \"pm.fail.{{runId}}@example.com\",\n  \"roleId\": {{managerRoleId}}\n}",
+              "raw": "{\n  \"name\": \"Should Fail\",\n  \"email\": \"pm.fail.{{runId}}@example.com\",\n  \"roleId\": {{managerRoleId}},\n  \"password\": \"Test@123\"\n}",
               "options": { "raw": { "language": "json" } }
             }
           }

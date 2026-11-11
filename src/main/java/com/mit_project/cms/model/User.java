@@ -37,6 +37,11 @@ public class User {
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
+    // [ADDED - password] the HASHED password (BCrypt), never the real password.
+    // Can be empty (null) for older users until someone sets a password for them.
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
+
     // Set once when the user is created, and never changed after that
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -111,6 +116,15 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    // [ADDED - password] getter/setter for the password hash
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     // No setter for createdAt: it is set automatically and must not be changed

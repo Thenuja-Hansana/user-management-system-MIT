@@ -12,6 +12,7 @@ import com.mit_project.cms.model.User;
 import com.mit_project.cms.repository.RoleRepository;
 import com.mit_project.cms.repository.UserRepository;
 import java.util.List;
+import org.springframework.security.crypto.password.PasswordEncoder;   // [ADDED - password]
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,15 +28,18 @@ public class UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserMapper userMapper;
+    private final PasswordEncoder passwordEncoder;   // [ADDED - password] hashes passwords (BCrypt)
 
-    // Constructor injection: Spring passes in the three objects.
+    // Constructor injection: Spring passes in the objects.
     // They are final, so they cannot be null or changed later.
     public UserService(UserRepository userRepository,
                        RoleRepository roleRepository,
-                       UserMapper userMapper) {
+                       UserMapper userMapper,
+                       PasswordEncoder passwordEncoder) {   // [CHANGED - password] new parameter
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.userMapper = userMapper;
+        this.passwordEncoder = passwordEncoder;   // [ADDED - password]
     }
 
     // Get all users and convert each one to a response
@@ -63,6 +67,12 @@ public class UserService {
     // @Transactional (without readOnly) allows writing to the database.
     @Transactional
     public UserResponse create(UserRequest request) {
+        // [ADDED - password] a new user must have a password
+        // (the rules were already checked by @Valid; here we only check that one was sent)
+        if (request.getPassword() == null) {
+            throw new InvalidOperationException("password", "Password is required");
+        }
+
         // Step 1: the email must not be used already
         if (userRepository.existsByEmail(request.getEmail().trim())) {
             throw new DuplicateResourceException(
@@ -72,7 +82,10 @@ public class UserService {
         Role role = getRoleOrThrow(request.getRoleId());
 
         // Step 3: save the user and return it as a response
-        User saved = userRepository.save(userMapper.toEntity(request, role));
+        // [CHANGED - password] the user is built first, so the hashed password can be added before saving
+        User user = userMapper.toEntity(request, role);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));   // [ADDED - password]
+        User saved = userRepository.save(user);
         return userMapper.toResponse(saved);
     }
 
@@ -93,6 +106,10 @@ public class UserService {
         // Step 4: copy the new values into the user and save.
         // saveAndFlush writes now, so @PreUpdate sets updatedAt before we build the response.
         userMapper.updateEntity(user, request, role);
+        // [ADDED - password] only change the password if a new one was sent; otherwise keep the old one
+        if (request.getPassword() != null) {
+            user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        }
         return userMapper.toResponse(userRepository.saveAndFlush(user));   // [CHANGED] save -> saveAndFlush
     }
 

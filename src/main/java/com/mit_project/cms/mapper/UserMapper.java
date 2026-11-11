@@ -23,7 +23,8 @@ public class UserMapper {
                 user.getRole().getName(),    // Role name, for example ADMIN
                 user.getStatus(),            // [ADDED]
                 user.getCreatedAt(),
-                user.getUpdatedAt());        // [ADDED]
+                user.getUpdatedAt(),         // [ADDED]
+                user.getPasswordHash() != null);   // [ADDED - password] only says IF a password exists
     }
 
     // Request -> new entity. Used when creating a user.
